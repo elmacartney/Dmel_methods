@@ -1,0 +1,369 @@
+---
+title: "Zantiks manipulation scripts"
+author: "Szymon Drobniak"
+date: "7 05 2021"
+output: rmdformats::robobook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = F}
+library(tidyverse)
+library(lme4)
+library(MCMCglmm)
+```
+
+# Locomotion
+
+## Data parsing
+
+First let's test-load one data file to see how to trim it into relevant bits. Definition in this files is so that first 4 rows and firts 6 columns are redundant.
+
+The first portion loads and parses the raw datafile lines.
+
+```{r}
+data_path = './data/locomotion/'
+data_files = list.files('./data/locomotion/', recursive = T)
+head(data_files)
+
+dat_temp = readLines(paste(data_path, data_files[2], sep = ''))
+
+dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
+                        quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
+                        stringsAsFactors = F)
+
+dat_temp_df = dat_temp_df[, -(2:6)]
+dat_temp_df = dat_temp_df %>% select(!(F6:F8))
+dat_temp_df
+```
+
+Here we extract and append the run (subject) ID.
+
+```{r}
+head_temp = readLines(paste(data_path, data_files[1], sep = ''), n = 4)
+id_index = grep('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', head_temp)
+run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+dat_temp_df$run_id = run_id
+
+assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
+dat_temp_df$date = assay_date
+dat_temp_df
+```
+
+Change to long format with individual IDs formed by merging plate ID and run ID.
+
+```{r}
+dat_temp_df =
+  dat_temp_df %>%
+  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
+  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F)
+
+dat_temp_df
+```
+
+Now - let's apply this in a loop to all available files.
+
+```{r}
+dat_df <- NULL
+for (file_i in data_files) {
+  
+  # file parsing
+  dat_temp = readLines(paste(data_path, file_i, sep = ''))
+  dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
+                         quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
+                         stringsAsFactors = F)
+  dat_temp_df = dat_temp_df[, -(2:6)]
+  dat_temp_df = dat_temp_df %>% select(!(F6:F8))
+  
+  # extract headers
+  head_temp = readLines(paste(data_path, file_i, sep = ''), n = 4)
+  id_index = grep('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', head_temp)
+  run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+  cat(run_id); cat('\n')
+  dat_temp_df$run_id = run_id
+  assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', file_i)
+  dat_temp_df$date = assay_date
+
+  # tidy
+  dat_temp_df =
+  dat_temp_df %>%
+  pivot_longer(names_to = "well_id", values_to = "arena_distance", cols = matches('[A-H][1-9]')) %>%
+  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F)
+
+
+  # merge into larger file
+  if(is.null(dat_df)) dat_df = dat_temp_df else dat_df = rbind(dat_df, dat_temp_df)
+}
+
+dat_df
+```
+
+## Simple viz
+
+```{r}
+dat_df_avg = dat_df %>%
+  group_by(indiv_id) %>%
+  summarise(avg = mean(arena_distance))
+
+# raw data variation
+dat_df_avg %>%
+  ggplot(aes(x = avg)) +
+  geom_histogram() +
+  theme_classic()
+
+# log scale
+dat_df_avg %>%
+  ggplot(aes(x = log(avg+1))) +
+  geom_histogram() +
+  theme_classic()
+
+dat_df %>%
+  ggplot(aes(x = indiv_id, y = log(arena_distance+1))) +
+  geom_boxplot() + theme_classic() + theme(axis.text.x = element_blank())
+```
+
+
+## Mixed-model with between-individual variation
+
+```{r}
+model1 = lmer(log(arena_distance+1) ~ ROUND + date + (1|indiv_id) + (1|run_id),
+              data = dat_df)
+summary(model1)
+
+
+model1mc <- MCMCglmm(log(arena_distance+1) ~ ROUND + date,
+                     random = ~ indiv_id + run_id,
+                     data = as.data.frame(dat_df), verbose = F,
+                     prior = list(R = list(V = 1, nu = 0.002),
+                                  G = list(G1 = list(V = 1, nu = 0.002),
+                                           G2 = list(V = 1, nu = 0.002))),
+                     nitt = 5e4, burnin = 1e4, thin = 40)
+# plot(model1mc)
+mean(model1mc$VCV[,"indiv_id"]/rowSums(model1mc$VCV))
+HPDinterval(model1mc$VCV[,"indiv_id"]/rowSums(model1mc$VCV))
+```
+
+
+# Y-maze
+
+## Data loading
+
+First we load the y-maze data and tidy it up to separate summary data from zone changes data.
+
+```{r}
+# parse datafiles into a nested tibble
+data_path = './data/ymaze/'
+data_files = list.files('./data/ymaze/', recursive = T)
+head(data_files)
+
+# helper functions extracting the data rows and the header rows
+data_parser = function(pattern, path, filename, summary = F) {
+  dat_temp = readLines(paste(path, filename, sep = ''))
+  zone_change_index = grep(pattern, dat_temp)
+  
+  if(!summary) {
+    return(read_delim(file = dat_temp[zone_change_index], col_names = F, delim = ',',
+                      quote = '\"' # skip = 4, nrows = length(dat_temp) - 4 - 1)
+    ))
+  } else {
+    return(read_delim(file = dat_temp[-zone_change_index], col_names = T, delim = ',',
+                      quote = '\"', skip = 6, n_max = 3))
+  }
+}
+
+head_parser = function(path, filename) {
+  dat_temp = readLines(paste(path, filename, sep = ''), n = 4)
+  return(read_delim(file = dat_temp,
+                    delim = ',',
+                    col_names = F))
+}
+
+# create tibble with raw data (nested: data nad header nested under file names)
+dat_raw = tibble(data_files = data_files) %>%
+  mutate(data = map(data_files, 
+                    ~ data_parser('[0-9]{3,4}.[0-9]{3},\\"Info\\",\\"Arena\\",[0-9]{1,2},\\"(?:Enter|Exit)_Zone\\",[0-9]',
+                                data_path,
+                                .x))) %>%
+  mutate(head = map(data_files, ~ head_parser(data_path, .x)))
+dat_raw[[2]] = dat_raw[[2]] %>%
+  map(~ select(.x, !c(X3)))
+
+# rename variables in sub-tibble
+dat_raw[[2]] = dat_raw[[2]] %>%
+  map(~ rename(.x, time = X1, info = X2, arena = X4, action = X5, zone_no = X6))
+
+# reformat the head sub-tibble
+dat_raw[[3]] = dat_raw[[3]] %>%
+  map(~ pivot_wider(.x, names_from = X3, values_from = X4)) %>%
+  map(~ select(.x, 'X1', 'X2', 'Apparatus', 'Subject Identification'))
+
+dat_raw[[2]][[1]]
+dat_raw[[3]][[1]]
+
+
+# parse summary data from a file into a separate tibble
+dat_raw_summ = tibble(data_files = data_files) %>%
+  mutate(data = map(data_files, 
+                    ~ data_parser('[0-9]{3,4}.[0-9]{3},\\"Info\\",\\"Arena\\",[0-9]{1,2},\\"(?:Enter|Exit)_Zone\\",[0-9]',
+                                data_path,
+                                .x,
+                                summary = T)))
+dat_raw_summ[[2]] = dat_raw_summ[[2]] %>%
+  map(~ select(.x, !c(X2, X3)))
+dat_raw_summ[[2]][[1]]
+```
+
+Unnest the tibble and select relevant variables.
+
+```{r}
+dat_un <- dat_raw
+dat_un = dat_raw %>%
+  unnest(head) %>%
+  unnest(data)
+
+dat_un = dat_un %>%
+  select(data_files, `Subject Identification`, time, arena, action, zone_no) %>%
+  rename(run_id = `Subject Identification`)
+
+dat_un = na.omit(dat_un)
+dat_un
+```
+
+TUrn into wider format with enter/exit columns, add row ID to maintain order if needed.
+
+```{r}
+dat_un = dat_un %>%
+  mutate(row_id = row_number()) %>%
+  pivot_wider(names_from = action, values_from = zone_no) %>%
+  rename(enter_zone = Enter_Zone, exit_zone = Exit_Zone)
+```
+
+Bin into 10-min intervals (if binning would be needed or only first 10 mins of exploration used). Then sort the dataset into individual arenas and chronologically within arenas, and then in enter-exit order at the lowest level.
+
+```{r}
+dat_an = dat_un
+
+dat_an = dat_an %>%
+  mutate(bin = ifelse(time > 600 & time < 1200, 1,
+                      ifelse(time > 1200 & time < 1800, 2,
+                             ifelse(time > 1800 & time < 2500, 3, NA))))
+
+dat_an = dat_an %>%
+  arrange(data_files, run_id, arena, time, exit_zone)
+dat_an
+```
+
+Error checking - do all enter zones have a matching exit zone (if enter and exit exist)?
+```{r}
+dat_an = dat_an %>%
+  mutate(zone = ifelse(enter_zone == lead(exit_zone), enter_zone, 666)) %>%
+  mutate(t_enter = ifelse(enter_zone >= 1, time, 666)) %>%
+  mutate(t_exit = ifelse(exit_zone >= 1, time, 666))
+
+dat_an %>% filter(zone == 666)
+dat_an %>% filter(t_enter == 666)
+dat_an %>% filter(t_exit == 666)
+# ALL GOOD! Note - this step is v. important and serves to test
+# if datapoints were sorted correctly
+```
+
+Simplify data by putting enter and exit data in one row:
+
+```{r}
+dat_an = dat_an %>%
+  select(data_files, run_id, time, arena, row_id, bin, zone, t_enter, t_exit)
+dat_an = dat_an %>%
+  mutate(t_exit = lead(t_exit))
+dat_an = na.omit(dat_an)
+dat_an = dat_an %>%
+  mutate(t_zone = t_exit - t_enter)
+
+dat_an
+```
+
+Remove center zone (middle of the Y-maze).
+
+```{r}
+dat_an2 = dat_an %>% filter(zone != 4)
+```
+
+We need to work separately for each individual - the easiest is to separate individuals into their own subtibbles and work on them by vectorizing operations - to achieve this we have to identify each individual (by pasting together file name and arena).
+
+```{r}
+dat_an2 = dat_an2 %>%
+  mutate(fly_id = paste(gsub('[A-Za-z0-9]+\\/([A-Za-z0-9_-]+)\\.csv', '\\1', data_files), arena, sep = "_"))
+
+# split datafile into individual flies
+dat_an2 = dat_an2 %>% split(., .[, "fly_id"])
+
+dat_an2 = dat_an2 %>%
+  map(~ mutate(.x, lag_zone = lag(zone))) %>%
+  map(~ mutate(.x, turn = case_when(lag_zone==1 & zone==2 ~ 'L',
+                                  lag_zone==1 & zone==3 ~ 'R',
+                                  lag_zone==2 & zone==1 ~ 'R',
+                                  lag_zone==2 & zone==3 ~ 'L',
+                                  lag_zone==3 & zone==1 ~ 'L',
+                                  lag_zone==3 & zone==2 ~ 'R',
+                                  # lag_zone==zone ~ 'X',
+                                  TRUE~ NA_character_ ))) %>%
+  map(~ select(.x, data_files, run_id, fly_id, arena, bin, zone, t_zone, turn))
+
+dat_an3 = bind_rows(dat_an2)
+dat_an3 = dat_an3 %>%
+  arrange(data_files, run_id, fly_id, bin)
+
+dat_an3 = na.omit(dat_an3)
+dat_an3
+```
+
+
+Analysis of tetragrams.
+
+```{r}
+dat_tet = dat_an3 %>%
+  group_by(fly_id)
+
+dat_tet = dat_tet %>%
+  mutate(tetragram = str_c(turn, lead(turn), lead(turn,2), lead(turn,3))) %>%
+  ungroup() %>%
+  select(fly_id, bin, turn, tetragram)
+dat_tet
+```
+
+We can now summarise tetragrams and turns:
+
+```{r}
+all_tetragrams = unique(dat_tet$tetragram)
+
+tetra_long = dat_tet %>%
+  select(-turn) %>%
+  na.omit() %>%
+  group_by(fly_id, bin) %>%
+  table() %>%
+  as_tibble() %>%
+  arrange(fly_id, bin)
+
+tetra_wide = tetra_long %>% pivot_wider(names_from = tetragram, values_from = n)
+
+turn_long = dat_tet %>%
+  select(-tetragram) %>%
+  na.omit() %>%
+  group_by(fly_id, bin) %>%
+  table() %>%
+  as_tibble() %>%
+  arrange(fly_id, bin)
+
+turn_wide = turn_long %>% pivot_wider(names_from = turn, values_from = n)
+
+data = tetra_wide %>%
+  left_join(turn_wide, by = c("fly_id", "bin")) %>%
+  mutate(total_turns = L+R,
+         reps = LLLL + RRRR,
+         alter = RLRL + LRLR,
+         rel_reps = (reps*100)/total_turns,
+         rel_alter = (alter*100)/total_turns,
+         rel_R = (R*100)/total_turns,
+         rel_L = (L*100)/total_turns)
+```
