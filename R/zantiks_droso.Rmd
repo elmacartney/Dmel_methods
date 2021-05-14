@@ -21,7 +21,9 @@ library(MCMCglmm)
 
 First let's test-load one data file to see how to trim it into relevant bits. Definition in this files is so that first 4 rows and firts 6 columns are redundant.
 
-The first portion loads and parses the raw datafile lines.
+The first portion loads and parses the raw data file lines.
+
+<!--- Szymek you have too many typos use the spell checker!! by shinichi--->
 
 ```{r}
 data_path = './data/locomotion/'
@@ -124,7 +126,6 @@ dat_df %>%
   geom_boxplot() + theme_classic() + theme(axis.text.x = element_blank())
 ```
 
-
 ## Mixed-model with between-individual variation
 
 ```{r}
@@ -144,7 +145,6 @@ model1mc <- MCMCglmm(log(arena_distance+1) ~ ROUND + date,
 mean(model1mc$VCV[,"indiv_id"]/rowSums(model1mc$VCV))
 HPDinterval(model1mc$VCV[,"indiv_id"]/rowSums(model1mc$VCV))
 ```
-
 
 # Y-maze
 
@@ -256,6 +256,7 @@ dat_an
 ```
 
 Error checking - do all enter zones have a matching exit zone (if enter and exit exist)?
+
 ```{r}
 dat_an = dat_an %>%
   mutate(zone = ifelse(enter_zone == lead(exit_zone), enter_zone, 666)) %>%
@@ -317,7 +318,6 @@ dat_an3 = dat_an3 %>%
 dat_an3 = na.omit(dat_an3)
 dat_an3
 ```
-
 
 Analysis of tetragrams.
 
