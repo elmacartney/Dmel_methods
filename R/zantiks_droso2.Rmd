@@ -37,7 +37,7 @@ dat_temp = readLines(paste(data_path, data_files[2], sep = ''))
 dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
                         quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
                         stringsAsFactors = F)
-
+# altearntive should work too
 #dat_temp_df2 <- read.csv(file = here("Data", "locomotion", data_files[2]), header = T,  skip = 4)
 
 dat_temp_df = dat_temp_df[, -(2:6)]
