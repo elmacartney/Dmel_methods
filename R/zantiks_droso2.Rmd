@@ -48,23 +48,35 @@ dat_temp_df
 Here we extract and append the run (subject) ID.
 
 ```{r}
-head_temp = readLines(paste(data_path, data_files[1], sep = ''), n = 4)
-id_index = grep('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', head_temp)
-run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
-dat_temp_df$run_id = run_id
+head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
+#id_index = grep('Subject Identification', head_temp)
+# ask Szymek to tell us what this all mean
+#id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
+#run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+dat_temp_df$run_id <- head_temp[[4]][1]
 
 assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
 dat_temp_df$date = assay_date
 dat_temp_df
+
+# practice to get a date
+run_id <- head_temp[[4]][1]
+# alternative way of getting date
+assay_date2<- str_sub(run_id, 11, 16)
 ```
 
 Change to long format with individual IDs formed by merging plate ID and run ID.
 
 ```{r}
-dat_temp_df =
+dat_temp_df <-
   dat_temp_df %>%
   pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
-  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F)
+  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F) 
+
+# removing machine ID
+dat_temp_df$indiv_id <-   str_sub(dat_temp_df$indiv_id, 11)
+# adding ID_
+dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
 
 dat_temp_df
 ```
@@ -84,20 +96,29 @@ for (file_i in data_files) {
   dat_temp_df = dat_temp_df %>% select(!(F6:F8))
   
   # extract headers
-  head_temp = readLines(paste(data_path, file_i, sep = ''), n = 4)
-  id_index = grep('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', head_temp)
-  run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
-  cat(run_id); cat('\n')
-  dat_temp_df$run_id = run_id
-  assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', file_i)
+  head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
+  #id_index = grep('Subject Identification', head_temp)
+  # ask Szymek to tell us what this all mean
+  #id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
+  #run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+  dat_temp_df$run_id <- head_temp[[4]][1]
+
+  assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
   dat_temp_df$date = assay_date
+  dat_temp_df
 
   # tidy
-  dat_temp_df =
+  dat_temp_df <-
   dat_temp_df %>%
-  pivot_longer(names_to = "well_id", values_to = "arena_distance", cols = matches('[A-H][1-9]')) %>%
-  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F)
+  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
+  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F) 
 
+   # removing machine ID
+   dat_temp_df$indiv_id <-   str_sub(dat_temp_df$indiv_id, 11)
+   # adding ID_
+   dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
+
+   dat_temp_df
 
   # merge into larger file
   if(is.null(dat_df)) 
@@ -120,19 +141,26 @@ data_compiler <- function(data.name = "210422/E_locomotion_traking-20000228T2248
   dat_temp_df <- dat_temp_df %>% select(!(F6:F8))
   
   # extract headers
-  head_temp <- readLines(paste(data_path, data.name, sep = ''), n = 4)
-  id_index <- grep('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', head_temp)
-  run_id <- gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
-  #cat(run_id); cat('\n')
-  dat_temp_df$run_id <- run_id
-  assay_date <- gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', file_i)
-  dat_temp_df$date = assay_date
+  head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
+  #id_index = grep('Subject Identification', head_temp)
+  # ask Szymek to tell us what this all mean
+  #id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
+  #run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+  dat_temp_df$run_id <- head_temp[[4]][1]
 
-  # tidy
+  assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
+  dat_temp_df$date = assay_date
+  dat_temp_df
+
   dat_temp_df <-
   dat_temp_df %>%
-  pivot_longer(names_to = "well_id", values_to = "arena_distance", cols = matches('[A-H][1-9]')) %>%
-  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F)
+  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
+  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F) 
+
+  # removing machine ID
+  dat_temp_df$indiv_id <-   str_sub(dat_temp_df$indiv_id, 11)
+  # adding ID_
+  dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
   
   dat_temp_df
   
@@ -141,6 +169,22 @@ data_compiler <- function(data.name = "210422/E_locomotion_traking-20000228T2248
 # map!
 dat_df<- map_dfr(data_files, ~ data_compiler(.x, data_path = here("Data/locomotion/"))) 
 ```
+
+We want to merge this data frame above with the sex information
+
+```{r}
+
+sex <- read_csv(here("Data", "Run register_Pilot 2 - Sex.csv"))
+
+
+sex %>% transmute(indiv_id = paste(Indviduals_ID, Wellplate_location, sep = "_"), Sex = Sex) -> sex_dat
+
+  # join together
+dat_df %>% left_join(sex_dat) -> dat_df2
+
+```
+
+
 
 ## Simple viz
 
