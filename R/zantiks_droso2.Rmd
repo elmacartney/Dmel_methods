@@ -28,11 +28,15 @@ The first portion loads and parses the raw data file lines.
 
 ```{r}
 data_path = here("Data/locomotion/")
+data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
 data_files = list.files(here("Data/locomotion/"), recursive = T)
 head(data_files)
 
-# read in one specific file 
-dat_temp = readLines(paste(data_path, data_files[2], sep = ''))
+# read in one specific file in mac
+#dat_temp = readLines(paste(data_path, data_files[2], sep = ''))
+
+# read in one specific file in PC
+dat_temp = readLines(paste(data_path, '/', data_files[2], sep = ''))
 
 dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
                         quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
