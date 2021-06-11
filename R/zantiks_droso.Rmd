@@ -45,8 +45,8 @@ Here we extract and append the run (subject) ID.
 
 ```{r}
 head_temp = readLines(paste(data_path, data_files[1], sep = ''), n = 4)
-id_index = grep('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', head_temp)
-run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+id_index = grep('.*Subject Identification\\"\,\\"\s([A-Z0-9]{7}_[A-B]_[0-9]{6}_[0-9])\\"', head_temp)
+run_id = gsub('.*Subject Identification\\"\,\\\"\s([A-Z0-9]{7}_[A-B]_[0-9]{6}_[0-9])\\\"', '\\1', head_temp[id_index])
 dat_temp_df$run_id = run_id
 
 assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
