@@ -29,16 +29,16 @@ The first portion loads and parses the raw data file lines.
 ```{r}
 data_path = here("Data/locomotion/")
 data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
-data_files = list.files(here("Data/locomotion/"), recursive = T)
+data_files <- list.files(here("Data/locomotion/"), recursive = T)
 head(data_files)
 
 # read in one specific file in mac
 #dat_temp = readLines(paste(data_path, data_files[2], sep = ''))
 
 # read in one specific file in PC
-dat_temp = readLines(paste(data_path, '/', data_files[2], sep = ''))
+dat_temp <- readLines(paste(data_path, '/', data_files[2], sep = ''))
 
-dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
+dat_temp_df <- read.csv(text = dat_temp, header = T, sep = ',',
                         quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
                         stringsAsFactors = F)
 # altearntive should work too
@@ -178,7 +178,7 @@ dat_df<- map_dfr(data_files, ~ data_compiler(.x, data_path =data_path))
 
 ```{r}
 
-sex <- read_csv(here("Data", "Run register_Pilot 2 - Sex.csv"))
+sex <- read_csv(here("Data", "sex", "Run register_Pilot 2 - Sex.csv"))
 
 
 sex %>% transmute(indiv_id = paste(Indviduals_ID, Wellplate_location, sep = "_"), Sex = Sex) -> sex_dat
@@ -224,19 +224,41 @@ library(ggpubr)
 
 dat_df3<- na.omit(dat_df2)
 
-violin <- ggviolin(dat_df3, x = "Sex", y = "arena_distance",add = c("jitter", "mean_se"), error.plot = "crossbar", palette= NULL)
+violin <-dat_df3 %>% 
+  group_by(indiv_id) %>% 
+  summarise(arena_distance = mean(arena_distance), Sex = unique(Sex)) %>% 
+  ggviolin(., x = "Sex", y = "arena_distance",add = c("jitter", "mean_se"), error.plot = "crossbar", palette= NULL)
 #some huge outliers in females
+pos_female <-which.max(dat_df3$arena_distance)
+dat_df3[pos_female, ]
+dat_df3[dat_df3$indiv_id == "ID_210421_3_B5", ]
 
 #scatter plot of distance and temp
 
 plot <- ggplot(dat_df2, aes(x = TEMPERATURE, y = arena_distance)) + geom_point() + geom_smooth(method = lm)
 
+plot
+violin
 
 #simple lmer
 
 mod1 <- lmer(arena_distance~ Sex + TEMPERATURE + (1|indiv_id), data = dat_df3)
 summary(mod1) # no difference between sex or temperature
 
+hist(residuals(mod1), breaks = 20)
+
+# random intercept model
+mod2 <- lmer(arena_distance~ Sex + TEMPERATURE + ROUND + (1|indiv_id), data = dat_df3)
+summary(mod2) #
+
+# random slope model
+mod3 <- lmer(arena_distance~ 1 + Sex + TEMPERATURE + ROUND + (1 + ROUND|indiv_id), data = dat_df3)
+summary(mod3) #
+
+
+mod4 <- lmer(arena_distance~ Sex + TEMPERATURE + (1 + ROUND|indiv_id), data = dat_df3)
+summary(mod4) #
+ranef(mod4)
 ```
 ## Mixed-model with between-individual variation
 
@@ -284,6 +306,11 @@ data_parser = function(pattern, path, filename, summary = F) {
                       quote = '\"', skip = 6, n_max = 3))
   }
 }
+
+# test
+pattern1 <- "Arena"
+dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
+
 
 head_parser = function(path, filename) {
   dat_temp = readLines(paste(path, filename, sep = ''), n = 4)
