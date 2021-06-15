@@ -56,7 +56,9 @@ head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
 #Szymek old code: id_index = grep('Subject Identification', head_temp)
 #id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
 #run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+
 dat_temp_df$run_id  <- head_temp[[4]][1]
+
 
 run_id <- head_temp[[4]][1]
 assay_date <- str_sub(run_id, 11, 16)
@@ -264,8 +266,8 @@ First we load the y-maze data and tidy it up to separate summary data from zone 
 
 ```{r}
 # parse datafiles into a nested tibble
-data_path = here('data/ymaze/')
-data_files = list.files(here('data/ymaze/'), recursive = T)
+data_path = here('Data/ymaze/')
+data_files = list.files(here('Data/ymaze/'), recursive = T)
 head(data_files)
 
 # helper functions extracting the data rows and the header rows
