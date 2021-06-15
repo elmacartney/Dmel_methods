@@ -53,20 +53,17 @@ Here we extract and append the run (subject) ID.
 
 ```{r}
 head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
-#id_index = grep('Subject Identification', head_temp)
-# ask Szymek to tell us what this all mean
+#Szymek old code: id_index = grep('Subject Identification', head_temp)
 #id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
 #run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
-dat_temp_df$run_id <- head_temp[[4]][1]
+dat_temp_df$run_id  <- head_temp[[4]][1]
 
-assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
+run_id <- head_temp[[4]][1]
+assay_date <- str_sub(run_id, 11, 16)
+
+#assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
 dat_temp_df$date = assay_date
 dat_temp_df
-
-# practice to get a date
-run_id <- head_temp[[4]][1]
-# alternative way of getting date
-assay_date2<- str_sub(run_id, 11, 16)
 ```
 
 Change to long format with individual IDs formed by merging plate ID and run ID.
@@ -85,57 +82,58 @@ dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
 dat_temp_df
 ```
 
-Now - let's apply this in a loop to all available files.
+Writing a function and using map to apply data loading and wrangling to all files 
 
 ```{r}
-dat_df <- NULL
-for (file_i in data_files) {
+#dat_df <- NULL
+#for (file_i in data_files) {
   
   # file parsing
-  dat_temp = readLines(paste(data_path, file_i, sep = ''))
-  dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
-                         quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
-                         stringsAsFactors = F)
-  dat_temp_df = dat_temp_df[, -(2:6)]
-  dat_temp_df = dat_temp_df %>% select(!(F6:F8))
+ # dat_temp = readLines(paste(data_path, file_i, sep = ''))
+  #dat_temp_df = read.csv(text = dat_temp, header = T, sep = ',',
+                        # quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
+                         #stringsAsFactors = F)
+  #dat_temp_df = dat_temp_df[, -(2:6)]
+  #dat_temp_df = dat_temp_df %>% select(!(F6:F8))
   
   # extract headers
-  head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
+  #head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
   #id_index = grep('Subject Identification', head_temp)
   # ask Szymek to tell us what this all mean
   #id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
   #run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
-  dat_temp_df$run_id <- head_temp[[4]][1]
+  #dat_temp_df$run_id <- head_temp[[4]][1]
 
-  assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
-  dat_temp_df$date = assay_date
-  dat_temp_df
+  #assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
+  #dat_temp_df$date = assay_date
+  #dat_temp_df
 
   # tidy
-  dat_temp_df <-
-  dat_temp_df %>%
-  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
-  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F) 
+  #dat_temp_df <-
+  #dat_temp_df %>%
+  #pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
+  #unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F) 
 
    # removing machine ID
-   dat_temp_df$indiv_id <-   str_sub(dat_temp_df$indiv_id, 11)
+   #dat_temp_df$indiv_id <-   str_sub(dat_temp_df$indiv_id, 11)
    # adding ID_
-   dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
+   #dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
 
-   dat_temp_df
+   #dat_temp_df
 
   # merge into larger file
-  if(is.null(dat_df)) 
-    {dat_df = dat_temp_df
-  } else{
-    dat_df = rbind(dat_df, dat_temp_df)}
-}
+  #if(is.null(dat_df)) 
+   # {dat_df = dat_temp_df
+  #} else{
+    #dat_df = rbind(dat_df, dat_temp_df)}
+#}
 
-dat_df
+#dat_df
 
-# funciton
+# function
+#210422/E_locomotion_traking-20000228T224844.csv
 
-data_compiler <- function(data.name = "210422/E_locomotion_traking-20000228T224844.csv", data_path = here("Data/locomotion/")){
+data_compiler <- function(data.name = "", data_path =data_path){
     # file parsing
   dat_temp <- readLines(paste(data_path, data.name, sep = ''))
   dat_temp_df <- read.csv(text = dat_temp, header = T, sep = ',',
@@ -145,16 +143,15 @@ data_compiler <- function(data.name = "210422/E_locomotion_traking-20000228T2248
   dat_temp_df <- dat_temp_df %>% select(!(F6:F8))
   
   # extract headers
-  head_temp <- read_csv(file = paste(data_path, data_files[1], sep = ''))
-  #id_index = grep('Subject Identification', head_temp)
-  # ask Szymek to tell us what this all mean
-  #id_index = grep('.*Subject Identification\\\",\\\"([A-Z0-9]{7}_[A-B0-9_]*)\\\"', head_temp)
-  #run_id = gsub('.*Subject Identification\\",\\"([A-Z0-9]{7}_[A-B0-9_]*)\\"', '\\1', head_temp[id_index])
+  head_temp <- read_csv(file = paste(data_path, data.name, sep = '')) 
+
   dat_temp_df$run_id <- head_temp[[4]][1]
 
-  assay_date = gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
-  dat_temp_df$date = assay_date
-  dat_temp_df
+run_id <- head_temp[[4]][1]
+assay_date <- str_sub(run_id, 11, 16)
+
+ dat_temp_df$date = assay_date
+ dat_temp_df
 
   dat_temp_df <-
   dat_temp_df %>%
@@ -171,10 +168,11 @@ data_compiler <- function(data.name = "210422/E_locomotion_traking-20000228T2248
 }
 
 # map!
-dat_df<- map_dfr(data_files, ~ data_compiler(.x, data_path = here("Data/locomotion/"))) 
+dat_df<- map_dfr(data_files, ~ data_compiler(.x, data_path =data_path)) 
+
 ```
 
-We want to merge this data frame above with the sex information
+##merging sex
 
 ```{r}
 
@@ -184,7 +182,9 @@ sex <- read_csv(here("Data", "Run register_Pilot 2 - Sex.csv"))
 sex %>% transmute(indiv_id = paste(Indviduals_ID, Wellplate_location, sep = "_"), Sex = Sex) -> sex_dat
 
   # join together
-dat_df %>% left_join(sex_dat) -> dat_df2
+
+dat_df2 <- dat_df %>% left_join(sex_dat)
+
 
 ```
 
@@ -193,7 +193,7 @@ dat_df %>% left_join(sex_dat) -> dat_df2
 ## Simple viz
 
 ```{r}
-dat_df_avg = dat_df %>%
+dat_df_avg = dat_df2 %>%
   group_by(indiv_id) %>%
   summarise(avg = mean(arena_distance))
 
@@ -209,22 +209,44 @@ dat_df_avg %>%
   geom_histogram() +
   theme_classic()
 
-dat_df %>%
+dat_df2 %>%
   ggplot(aes(x = indiv_id, y = log(arena_distance+1))) +
   geom_boxplot() + theme_classic() + theme(axis.text.x = element_blank())
 ```
 
+## Sex and temp differences, simple Viz and models
+```{r}
+
+#violin plot of distance grouped by sex
+library(ggpubr)
+
+dat_df3<- na.omit(dat_df2)
+
+violin <- ggviolin(dat_df3, x = "Sex", y = "arena_distance",add = c("jitter", "mean_se"), error.plot = "crossbar", palette= NULL)
+#some huge outliers in females
+
+#scatter plot of distance and temp
+
+plot <- ggplot(dat_df2, aes(x = TEMPERATURE, y = arena_distance)) + geom_point() + geom_smooth(method = lm)
+
+
+#simple lmer
+
+mod1 <- lmer(arena_distance~ Sex + TEMPERATURE + (1|indiv_id), data = dat_df3)
+summary(mod1) # no difference between sex or temperature
+
+```
 ## Mixed-model with between-individual variation
 
 ```{r}
 model1 = lmer(log(arena_distance+1) ~ ROUND + date + (1|indiv_id) + (1|run_id),
-              data = dat_df)
+              data = dat_df2)
 summary(model1)
 
 
 model1mc <- MCMCglmm(log(arena_distance+1) ~ ROUND + date,
                      random = ~ indiv_id + run_id,
-                     data = as.data.frame(dat_df), verbose = F,
+                     data = as.data.frame(dat_df2), verbose = F,
                      prior = list(R = list(V = 1, nu = 0.002),
                                   G = list(G1 = list(V = 1, nu = 0.002),
                                            G2 = list(V = 1, nu = 0.002))),
