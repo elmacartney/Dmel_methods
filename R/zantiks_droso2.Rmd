@@ -293,7 +293,7 @@ data_files = list.files(here('Data/ymaze/'), recursive = T)
 head(data_files)
 
 # helper functions extracting the data rows and the header rows
-data_parser = function(pattern, path, filename, summary = F) {
+data_parser = function(pattern, path, filename, summary = FALSE) {
   dat_temp = readLines(paste(path, filename, sep = ''))
   zone_change_index = grep(pattern, dat_temp)
   
@@ -309,8 +309,8 @@ data_parser = function(pattern, path, filename, summary = F) {
 
 # test
 pattern1 <- "Arena"
-dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
-
+test1 <- readLines(paste(data_path, data_files[1], sep = ''))
+id_test = grep(pattern1, test1)
 
 head_parser = function(path, filename) {
   dat_temp = readLines(paste(path, filename, sep = ''), n = 4)
@@ -322,7 +322,7 @@ head_parser = function(path, filename) {
 # create tibble with raw data (nested: data nad header nested under file names)
 dat_raw = tibble(data_files = data_files) %>%
   mutate(data = map(data_files, 
-                    ~ data_parser('[0-9]{3,4}.[0-9]{3},\\"Info\\",\\"Arena\\",[0-9]{1,2},\\"(?:Enter|Exit)_Zone\\",[0-9]',
+                    ~ data_parser(pattern1,
                                 data_path,
                                 .x))) %>%
   mutate(head = map(data_files, ~ head_parser(data_path, .x)))
@@ -345,7 +345,8 @@ dat_raw[[3]][[1]]
 # parse summary data from a file into a separate tibble
 dat_raw_summ = tibble(data_files = data_files) %>%
   mutate(data = map(data_files, 
-                    ~ data_parser('[0-9]{3,4}.[0-9]{3},\\"Info\\",\\"Arena\\",[0-9]{1,2},\\"(?:Enter|Exit)_Zone\\",[0-9]',
+                    ~ #data_parser('[0-9]{3,4}.[0-9]{3},\\"Info\\",\\"Arena\\",[0-9]{1,2},\\"(?:Enter|Exit)_Zone\\",[0-9]',
+                      data_parser(pattern1,
                                 data_path,
                                 .x,
                                 summary = T)))
