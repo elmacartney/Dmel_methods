@@ -254,6 +254,7 @@ summary(mod2) #
 # random slope model
 mod3 <- lmer(arena_distance~ 1 + Sex + TEMPERATURE + ROUND + (1 + ROUND|indiv_id), data = dat_df3)
 summary(mod3) #
+#round is important as they move more during the assay. This increase differs between individuals
 
 
 mod4 <- lmer(arena_distance~ Sex + TEMPERATURE + (1 + ROUND|indiv_id), data = dat_df3)
@@ -309,7 +310,7 @@ data_parser = function(pattern, path, filename, summary = FALSE) {
 
 # test
 pattern1 <- "Arena"
-test1 <- readLines(paste(data_path, data_files[1], sep = ''))
+test1 <- readLines(paste(data_path, '/', data_files[1], sep = ''))
 id_test = grep(pattern1, test1)
 
 head_parser = function(path, filename) {
@@ -319,6 +320,7 @@ head_parser = function(path, filename) {
                     col_names = F))
 }
 
+#THIS CODE DOESN'T WORK FOR ME - ERIN
 # create tibble with raw data (nested: data nad header nested under file names)
 dat_raw = tibble(data_files = data_files) %>%
   mutate(data = map(data_files, 
