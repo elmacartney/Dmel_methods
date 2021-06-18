@@ -290,7 +290,7 @@ First we load the y-maze data and tidy it up to separate summary data from zone 
 ```{r}
 # parse datafiles into a nested tibble
 data_path <- here('Data/ymaze/')
-data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
+#data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
 data_files <- list.files(here('Data/ymaze/'), recursive = T)
 head(data_files)
 
@@ -299,7 +299,7 @@ data_parser = function(pattern, path, filename, summary = FALSE) {
   dat_temp = readLines(paste(path, filename, sep = ''))
   zone_change_index = grep(pattern, dat_temp)
   
-  if(!summary) {
+  if(summary == FALSE) {
     return(read_delim(file = dat_temp[zone_change_index], col_names = F, delim = ',',
                       quote = '\"' # skip = 4, nrows = length(dat_temp) - 4 - 1)
     ))
@@ -311,8 +311,11 @@ data_parser = function(pattern, path, filename, summary = FALSE) {
 
 # test
 pattern1 <- "Arena"
-test1 <- readLines(paste(data_path, '/', data_files[1], sep = ''))
+test1 <- readLines(paste(data_path, data_files[1], sep = ''))
 id_test = grep(pattern1, test1)
+test_dat <- read_delim(file = test1[-id_test], col_names = T, delim = ',',
+                      quote = '\"', skip = 6, n_max = 3)
+
 
 head_parser = function(path, filename) {
   dat_temp = readLines(paste(path, filename, sep = ''), n = 4)
@@ -327,7 +330,7 @@ dat_raw = tibble(data_files = data_files) %>%
   mutate(data = map(data_files, 
                     ~ data_parser(pattern1,
                                 data_path,
-                                .x))) %>%
+                                .x, summary = FALSE))) %>%
   mutate(head = map(data_files, ~ head_parser(data_path, .x)))
 dat_raw[[2]] = dat_raw[[2]] %>%
   map(~ select(.x, !c(X3)))
@@ -370,11 +373,12 @@ dat_un = dat_un %>%
   select(data_files, `Subject Identification`, time, arena, action, zone_no) %>%
   rename(run_id = `Subject Identification`)
 
+# TODO Shinichi wants to know where they has NA
 dat_un = na.omit(dat_un)
 dat_un
 ```
 
-TUrn into wider format with enter/exit columns, add row ID to maintain order if needed.
+Turn into wider format with enter/exit columns, add row ID to maintain order if needed.
 
 ```{r}
 dat_un = dat_un %>%
