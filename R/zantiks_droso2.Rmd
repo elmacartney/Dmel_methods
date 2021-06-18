@@ -27,7 +27,7 @@ The first portion loads and parses the raw data file lines.
 <!--- Szymek you have too many typos use the spell checker!! by shinichi--->
 
 ```{r}
-data_path = here("Data/locomotion/")
+data_path <- here("Data/locomotion/")
 data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
 data_files <- list.files(here("Data/locomotion/"), recursive = T)
 head(data_files)
@@ -289,8 +289,9 @@ First we load the y-maze data and tidy it up to separate summary data from zone 
 
 ```{r}
 # parse datafiles into a nested tibble
-data_path = here('Data/ymaze/')
-data_files = list.files(here('Data/ymaze/'), recursive = T)
+data_path <- here('Data/ymaze/')
+data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
+data_files <- list.files(here('Data/ymaze/'), recursive = T)
 head(data_files)
 
 # helper functions extracting the data rows and the header rows
