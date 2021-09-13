@@ -26,4 +26,7 @@ vignettes/*.pdf
 *.knit.md
 # R Environment Variables
 .Renviron
-Dmel_methods.Rproj
+R/*.html
+R/*.pdf
+*.Rproj
+
