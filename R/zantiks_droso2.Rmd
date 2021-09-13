@@ -39,7 +39,7 @@ In the next step we test the approach on several steps. First - we a sample CSV 
 
 ```{r}
 # read in one specific file in mac
-dat_temp = readLines(paste(data_path, data_files[1], sep = ''))
+dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
 
 # read in one specific file in PC // Szymek: not clear why this was added, reverting, it's not generating a correct path
 # dat_temp <- readLines(paste(data_path, '/', data_files[2], sep = ''))
@@ -154,13 +154,15 @@ data_compiler <- function(filename, data_path) {
   # adding ID_
   dat_temp_df$indiv_id <- paste0("ID_", dat_temp_df$indiv_id)
   
-  dat_temp_df
+  return(dat_temp_df)
   
 }
 
+data_compiler(data_files[5], data_path)
 # map! // map creates unclosed terminals to files handled by file read functions!! for loop is much safer
 
-dat_df<- map_dfr(data_files, ~ data_compiler(.x, data_path = data_path))
+dat_df<- map_dfr(data_files[5:8], ~ data_compiler(.x, data_path = data_path))
+# current test excludes some files as they were misformatted - to FIX
 ```
 
 ## merging sex
