@@ -1,0 +1,4 @@
+﻿ID_name;ID_explanation
+Individuals_ID;"Batch of individuals sexed together on one 96-well plate; used to link sex information with individual entries in data files; = group of individuals tested for multiple assays"
+Batch_ID;"Batch of assays performed at a given time (i.e., a set of tests started on one occassion); number of batched with given ID must <= number of units available"
+Exp_block;"Set of plates tested together (i.e., sexed together and handled together during one session (e.g., before noon or after noon) of testing; likely spurious (should mean the same as Individuals_ID)"
