@@ -4,7 +4,11 @@ author: "Szymek Drobniak, Erin Macartney & Shinichi Nakagawa"
 date: "`r Sys.Date()`"
 output:
   rmdformats::robobook:
-    code_folding: hide
+      
+      code_folding: hide
+      toc_depth: 3
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -29,7 +33,6 @@ The first portion loads and parses the raw data file lines.
 
 ```{r}
 data_path <- here("Data/locomotion/")
-# data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
 data_files <- list.files(here("Data/locomotion/"), recursive = T)
 head(data_files)
 ```
@@ -41,14 +44,10 @@ In the next step we test the approach on several steps. First - we process a sam
 ```{r}
 # read in one specific file in mac
 dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
-
-# read in one specific file in PC // Szymek: not clear why this was added, reverting, it's not generating a correct path
-# dat_temp <- readLines(paste(data_path, '/', data_files[2], sep = ''))
-
 glimpse(dat_temp)
 ```
 
-Loaded data is just a vector of strings, each being a line from the original CSV file. In the next chunk we skip the first 4 lines (fixed number, lines containing technical parameters of the units), and load 5 lines (which excludes the header line - so in fact 6 lines), skipping the last technical line. At the end we clean the file (removing empty columns `2:6` and wells `c(F6, F7, F8)` - they are always empty in our system). Adjust as needed.
+Loaded data is just a vector of strings, each being a line from the original CSV file. In the next chunk we skip the first 4 lines (fixed number, lines containing technical parameters of the units), and load 5 lines (which excludes the header line - so in fact 6 lines), skipping the last technical line. At the end we clean the file (removing empty columns `2:6` and wells `c(F6, F7, F8)` - they are always empty in our system). Adjust as needed. The resulting file contains each assayed well as separate column, and for each there are 5 times intervals of locomotion monitoring.
 
 ```{r}
 dat_temp_df <- read.csv(text = dat_temp, header = T, sep = ',',
@@ -68,7 +67,7 @@ glimpse(dat_temp_df)
 Here we extract and append the run (subject) ID.
 
 ```{r}
-# // the below code was seriously messed upo by sb - fixing it
+# // the below code was seriously messed up by sb - fixing it
 # // plz do not use the tidyverse read commands unless it's absolutely necessary
 # // they introduce bugs more often than help
 
@@ -85,14 +84,12 @@ dat_temp_df$Datafile_ID <- run_id
 # run_id <- head_temp[[4]][1]
 # assay_date <- str_sub(run_id, 11, 16)
 
-# this works only if files organised by date in separate folders
-# assay_date <- gsub('([0-9]{6})/E_[A-Za-z_]+-[0-9A-Z]+.csv', '\\1', data_files[1])
 assay_date <- str_sub(run_id, 11, 16)
 dat_temp_df$date <- assay_date
 glimpse(dat_temp_df)
 ```
 
-Change to long format.
+Change to long format. Now each well x time combination has it's separate row, and since we have datafile ID we can link wells to specific individuals - e.g., to link-in sex information.
 
 ```{r}
 dat_temp_df <-
