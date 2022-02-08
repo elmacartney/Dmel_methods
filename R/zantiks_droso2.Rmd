@@ -89,40 +89,38 @@ dat_temp_df$date <- assay_date
 glimpse(dat_temp_df)
 ```
 
-Change to long format. Now each well x time combination has it's separate row, and since we have datafile ID we can link wells to specific individuals - e.g., to link-in sex information.
+Change to long format. Now each well x time combination has it's separate row, and since we have datafile ID we can link wells to specific individuals - e.g., to link-in sex information. We also rename variable according to convention: categorical variables - `Names_start_with_upper_case`; continuous variables - `all_lower_case`.
 
 ```{r}
 dat_temp_df <-
   dat_temp_df %>%
-  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]'))
-#  unite(col = 'indiv_id', c(run_id, well_id), sep = '_', remove = F) 
+  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
+  rename(time = TIME, temperature = TEMPERATURE, round = ROUND,
+         Variable = VARIABLE, Date = date, Well_ID = well_id)
 
 head(dat_temp_df)
 ```
 
-We have to add the `Individuals_ID` variable to be able to link locomotion data to sex data.
+We have to add the `Individuals_ID` variable to be able to link locomotion data to sex data. It will serve to link Datafile_ID with respective Individuals_ID - and through it with appropriate well number.
 
 ```{r}
-run_register <- read_delim(here('Data', 'sex', 'run_register.csv'), delim = ';')
+run_register <- read_delim(here('Data', 'run_data', 'run_register_pilot2.csv'), delim = ';')
 glimpse(run_register)
 
 dat_temp_df <- dat_temp_df %>%
   left_join(select(run_register, Datafile_ID, Individuals_ID))
 
 dat_temp_df <- dat_temp_df %>%
-    mutate(Individuals_ID_well = paste0(Individuals_ID, '_', well_id))
+    mutate(Individuals_ID_well = paste0(Individuals_ID, '_', Well_ID))
+
+dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date,
+                                      temperature, round, arena_distance)
 glimpse(dat_temp_df)
 ```
 
-Writing a function and using map to apply data loading and wrangling to all files. Note: the function uses the pattern found in text files so an important point - do not resave Zantiks CSV files with any external software (be it MS Excel, Numbers, Google Sheets, etc.) as it will mess up with the formatting and the way text strings are coded. Adjust internal REs whenever needed.
+Writing a function and using `map` to apply data loading and wrangling to all files. Note: the function uses the pattern found in text files so an important point - do not re-save Zantiks CSV files with any external software (be it MS Excel, Numbers, Google Sheets, etc.) as it will mess up with the formatting and the way text strings are coded. Adjust internal REs whenever needed.
 
 ```{r}
-
-# // plz, PLZ do not write functions before the algorithm is tested - debugging is much more difficult!
-# // I'm rewriting the below using my mods in previous section
-# // many lines generated errors - no time to follow them, my guess they arise becasue formatting of data
-# // changes - RE are much more flexible and do not require using high-level substring functions
-
 data_compiler <- function(filename, data_path, run_register) {
   
   # // plz document function arguments
@@ -136,6 +134,10 @@ data_compiler <- function(filename, data_path, run_register) {
   dat_temp_df <- read.csv(text = dat_temp, header = T, sep = ',',
                           quote = '\"', dec = '.', skip = 4, nrows = length(dat_temp) - 4 - 2,
                           stringsAsFactors = F)
+  
+  
+  ## these line are design specific - for now the function has close form on those
+  ## possible to implement as additional argument
   
   dat_temp_df <- dat_temp_df[, -(2:6)]
   dat_temp_df <- dat_temp_df %>% select(!(F6:F8))
@@ -151,23 +153,28 @@ data_compiler <- function(filename, data_path, run_register) {
   assay_date <- str_sub(run_id, 11, 16)
   dat_temp_df$date <- assay_date
   
-  dat_temp_df <- dat_temp_df %>%
-    pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]'))
+  dat_temp_df <-
+  dat_temp_df %>%
+  pivot_longer(names_to = 'well_id', values_to = 'arena_distance', cols = matches('[A-H][1-9]')) %>%
+  rename(time = TIME, temperature = TEMPERATURE, round = ROUND,
+         Variable = VARIABLE, Date = date, Well_ID = well_id)
   
   dat_temp_df <- dat_temp_df %>%
     left_join(select(run_register, Datafile_ID, Individuals_ID))
   
   dat_temp_df <- dat_temp_df %>%
-    mutate(Individuals_ID_well = paste0(Individuals_ID, '_', well_id))
+    mutate(Individuals_ID_well = paste0(Individuals_ID, '_', Well_ID))
   
-  dat_temp_df$filename <- filename
+  dat_temp_df$Filename <- filename
+  
+  dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Filename,
+                                      temperature, round, arena_distance)
   
   return(dat_temp_df)
-  
 }
 ```
 
-Process the files using the function, mapping it row-wise into a now data-frame.
+Process the files using the function, mapping it row-wise into a new data-frame.
 
 ```{r message = F}
 # Not run: test
@@ -182,21 +189,23 @@ glimpse(data_locomotion)
 
 ## Adding sex information
 
-Below we load the sex information (referenced to our data via the `Individuals_ID` data from the run registry) and left-join it with the locomotion data.
+Below we load the sex information (referenced to our data via the `Individuals_ID` data from the sex registry file) and left-join it with the locomotion data.
 
 ```{r}
 
-sex <- read_csv(here("Data", "sex", "Run register_Pilot 2 - Sex.csv"))
+sex <- read_csv(here("Data", "run_data", "position_ID_sex_pilot2.csv"))
 
 
 sex <- sex %>%
-  mutate(Individuals_ID_well = paste0(Indviduals_ID, "_", Wellplate_location))
+  mutate(Individuals_ID_well = paste0(Indviduals_ID, "_", Wellplate_location)) %>%
+  select(Individuals_ID_well, Sex)
 
 # join together
 
 data_locomotion <- data_locomotion %>%
   left_join(sex, by = "Individuals_ID_well")
 
+data_locomotion$Round_f <- as.factor(data_locomotion$round)
 ```
 
 
@@ -235,59 +244,30 @@ We can also visualise sexual differences.
 #violin plot of distance grouped by sex
 library(ggpubr)
 
-# dat_df3<- na.omit(dat_df2)
-
 violin <- data_locomotion %>% 
   group_by(Individuals_ID_well) %>% 
   summarise(arena_distance = log(mean(arena_distance) +1), Sex = unique(Sex)) %>% 
   ggviolin(., x = "Sex", y = "arena_distance", add = c("jitter", "mean_se"), error.plot = "crossbar", palette= NULL) +
   labs(y = "log(Mean arena distance)")
 violin
-#some huge outliers in females
-pos_female <- which.max(data_locomotion$arena_distance)
-data_locomotion[pos_female, ]
-
-# //not sure what this was for?
-# dat_df3[dat_df3$indiv_id == "ID_210421_3_B5", ]
-
-#scatter plot of distance and temp // invalid, we have not varied temperature
-# plot <- ggplot(data_locomotion, aes(x = TEMPERATURE, y = log(arena_distance+1))) + geom_point() + geom_smooth(method = lm)
-
-
-#simple lmer
-mod1 <- lmer(log(arena_distance+1) ~ Sex + as.factor(date) + (1|Individuals_ID_well) + (1|Datafile_ID),
-             data = data_locomotion)
-summary(mod1) # no difference between sex or temperature
-hist(residuals(mod1), breaks = 20)
-
-# random intercept model
-mod2 <- lmer(log(arena_distance+1) ~ Sex + as.factor(date) + ROUND + (1|Individuals_ID_well) + (1|Datafile_ID),
-             data = data_locomotion)
-summary(mod2)
-
-# random slope model
-mod3 <- lmer(log(arena_distance+1) ~ Sex + as.factor(date) + ROUND + (1 + ROUND|Individuals_ID_well) + (1|Datafile_ID),
-             data = data_locomotion)
-summary(mod3)
-#round is important as they move more during the assay. This increase differs between individuals
-
-
 ```
 
-## Mixed-model with between-individual variation
+
+Simple linear model to explore undelrying variation.
 
 ```{r}
-model1mc <- MCMCglmm(log(arena_distance+1) ~ Sex + ROUND + as.factor(date),
-                     random = ~ Individuals_ID_well + Datafile_ID,
-                     data = na.omit(as.data.frame(data_locomotion)), verbose = F,
-                     prior = list(R = list(V = 1, nu = 0.002),
-                                  G = list(G1 = list(V = 1, nu = 0.002, alpha.V = 0, alpha.mu = 1e4),
-                                           G2 = list(V = 1, nu = 0.002, alpha.V = 0, alpha.mu = 1e4))),
-                     nitt = 5e4, burnin = 1e4, thin = 40)
-# plot(model1mc)
-mean(model1mc$VCV[,"Individuals_ID_well"]/rowSums(model1mc$VCV))
-HPDinterval(model1mc$VCV[,"Individuals_ID_well"]/rowSums(model1mc$VCV))
+# simple lmer
+mod1 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (1|Individuals_ID_well) + (1|Datafile_ID),
+             data = data_locomotion)
+summary(mod1)
+qplot(residuals(mod1)) + theme_bw()
+
+# random slope model
+mod2 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (Sex|Individuals_ID_well) + (1|Datafile_ID),
+             data = data_locomotion)
+summary(mod2)
 ```
+
 
 
 # Y-maze
@@ -297,10 +277,8 @@ HPDinterval(model1mc$VCV[,"Individuals_ID_well"]/rowSums(model1mc$VCV))
 First we load the y-maze data and tidy it up to separate summary data from zone changes data.
 
 ```{r}
-# parse datafiles into a nested tibble
+## parse datafiles into a nested tibble
 data_path <- here('Data/ymaze/')
-
-#data_path <- paste0(data_path, "/") #need this when using PC. Don't use on Mac
 data_files <- list.files(here('Data/ymaze/'), recursive = T)
 head(data_files)
 
@@ -319,14 +297,16 @@ data_parser <- function(pattern, path, filename, summary = FALSE) {
   }
 }
 
-# test
-pattern1 <- "Arena"
+# test the parser
+pattern1 <- "Arena" # defines what should contain each line that we look for
 test1 <- readLines(paste(data_path, data_files[1], sep = ''))
-id_test <- grep(pattern1, test1)
+id_test <- grep(pattern1, test1) # use (simplified) RE to select lines
+
+# this extracts (meesy) run and temporary data from each file
 test_dat <- read_delim(file = test1[-id_test], col_names = T, delim = ',',
                       quote = '\"', skip = 6, n_max = 3)
 
-
+# helper function that parses the (messy) run data into a readable format)
 head_parser <- function(path, filename) {
   dat_temp <- readLines(paste(path, filename, sep = ''), n = 4)
   return(read_delim(file = dat_temp,
@@ -335,7 +315,9 @@ head_parser <- function(path, filename) {
 }
 ```
 
-The below code generates a nested tibble with respective filenames grouping respective arena and header data.
+
+The below code generates a nested tibble (grouped by single analysis output files, i.e., `Filename`).
+
 ```{r}
 # create tibble with raw data (nested: data and header nested under file names)
 dat_raw <- tibble(data_files = data_files) %>%
@@ -345,33 +327,35 @@ dat_raw <- tibble(data_files = data_files) %>%
                                   .x, summary = FALSE))) %>%
   mutate(head = map(data_files, ~ head_parser(data_path, .x)))
 
+# this remove the redundant 'Arena' column
 dat_raw[[2]] = dat_raw[[2]] %>%
   map(~ select(.x, !c(X3)))
 
-# rename variables in sub-tibble
+# rename variables in sub-tibble based on their real content
 dat_raw[[2]] = dat_raw[[2]] %>%
-  map(~ rename(.x, time = X1, info = X2, arena = X4, action = X5, zone_no = X6))
+  map(~ rename(.x, time = X1, Info = X2, Arena = X4, Action = X5, Zone_no = X6))
 
 # reformat the head sub-tibble
 dat_raw[[3]] = dat_raw[[3]] %>%
   map(~ pivot_wider(.x, names_from = X3, values_from = X4)) %>%
-  map(~ select(.x, 'X1', 'X2', 'Apparatus', 'Subject Identification'))
+  map(~ rename(.x, Datafile_ID = `Subject Identification`)) %>%
+  map(~ select(.x, Apparatus, Datafile_ID))
 
 # check the modifications
 dat_raw[[2]][[1]]
 dat_raw[[3]][[1]]
 
 
-# parse summary data from a file into a separate tibble
+# parse summary data from a file into a separate tibble - this is not used for now
+# processed only for consistency
 dat_raw_summ = tibble(data_files = data_files) %>%
-  mutate(data = map(data_files, 
-                    ~ #data_parser('[0-9]{3,4}.[0-9]{3},\\"Info\\",\\"Arena\\",[0-9]{1,2},\\"(?:Enter|Exit)_Zone\\",[0-9]',
-                      data_parser(pattern1,
+  mutate(data = map(data_files, ~ data_parser(pattern1,
                                 data_path,
                                 .x,
                                 summary = T)))
 dat_raw_summ[[2]] = dat_raw_summ[[2]] %>%
-  map(~ select(.x, !c(X2, X3)))
+  map(~ select(.x, !c(X1, X2, X3))) %>%
+  map(~ rename(.x, Summary_stat = X4))
 dat_raw_summ[[2]][[1]]
 ```
 
@@ -384,8 +368,8 @@ dat_un = dat_raw %>%
   unnest(data)
 
 dat_un <- dat_un %>%
-  select(data_files, `Subject Identification`, time, arena, action, zone_no) %>%
-  rename(run_id = `Subject Identification`)
+  select(data_files, Datafile_ID, time, Arena, Action, Zone_no) %>%
+  rename(Data_file = data_files)
 
 ```
 
@@ -393,9 +377,9 @@ Turn into wider format with enter/exit columns, add row ID to maintain order if 
 
 ```{r}
 dat_un <- dat_un %>%
-  mutate(row_id = row_number()) %>%
-  pivot_wider(names_from = action, values_from = zone_no) %>%
-  rename(enter_zone = Enter_Zone, exit_zone = Exit_Zone)
+  mutate(Row_ID = row_number()) %>%
+  pivot_wider(names_from = Action, values_from = Zone_no) %>%
+  rename(Exit_zone = Exit_Zone, Enter_zone = Enter_Zone)
 dat_un
 ```
 
@@ -405,12 +389,12 @@ Bin into 10-min intervals (if binning would be needed or only first 10 mins of e
 dat_an <- dat_un
 
 dat_an <- dat_an %>%
-  mutate(bin = ifelse(time > 600 & time < 1200, 1,
+  mutate(Bin = ifelse(time > 600 & time < 1200, 1,
                       ifelse(time > 1200 & time < 1800, 2,
                              ifelse(time > 1800 & time < 2500, 3, NA))))
 
 dat_an <- dat_an %>%
-  arrange(data_files, run_id, arena, time, exit_zone)
+  arrange(Data_file, Datafile_ID, Arena, time, Exit_zone)
 dat_an
 ```
 
@@ -418,15 +402,17 @@ Error checking - do all enter zones have a matching exit zone (if enter and exit
 
 ```{r}
 dat_an <- dat_an %>%
-  mutate(zone = ifelse(enter_zone == lead(exit_zone), enter_zone, 666)) %>%
-  mutate(t_enter = ifelse(enter_zone >= 1, time, 666)) %>%
-  mutate(t_exit = ifelse(exit_zone >= 1, time, 666))
+  mutate(Zone = ifelse(Enter_zone == lead(Exit_zone), Enter_zone, 666)) %>%
+  mutate(t_enter = ifelse(Enter_zone >= 1, time, 666)) %>%
+  mutate(t_exit = ifelse(Exit_zone >= 1, time, 666))
 
-dat_an %>% filter(zone == 666)
+dat_an %>% filter(Zone == 666)
 dat_an %>% filter(t_enter == 666)
 dat_an %>% filter(t_exit == 666)
+
 # ALL GOOD! Note - this step is v. important and serves to test
 # if datapoints were sorted correctly
+# Single detected mistakes are likley final entries that failed to exit before assay end
 ```
 
 Simplify data by putting enter and exit data in one row:
