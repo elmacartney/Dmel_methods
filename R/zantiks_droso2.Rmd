@@ -303,8 +303,12 @@ First we load the y-maze data and tidy it up to separate summary data from zone 
 ## parse datafiles into a nested tibble
 data_path <- here('Data/ymaze/')
 data_files <- list.files(here('Data/ymaze/'), recursive = T)
-head(data_files)
+data_files[1:8]
+```
 
+The below parser identifies lines in the dataset that directly relate to zone-switching data and extracts them, or (when `summary = TRUE`) it extract the arena distances summaries from the bottom section of the file.
+
+```{r}
 # helper functions extracting the data rows and the header rows
 data_parser <- function(pattern, path, filename, summary = FALSE) {
   dat_temp <- readLines(paste(path, filename, sep = ''))
@@ -321,11 +325,14 @@ data_parser <- function(pattern, path, filename, summary = FALSE) {
 }
 
 # test the parser
+# here we simply check that the selected pattern to be looked for (`Arena`) is indeed present in the file.
 pattern1 <- "Arena" # defines what should contain each line that we look for
 test1 <- readLines(paste(data_path, data_files[1], sep = ''))
 id_test <- grep(pattern1, test1) # use (simplified) RE to select lines
+```
 
-# this extracts (meesy) run and temporary data from each file
+```{r}
+# this extracts (messy) run and temporary data from each file
 test_dat <- read_delim(file = test1[-id_test], col_names = T, delim = ',',
                       quote = '\"', skip = 6, n_max = 3)
 
@@ -350,7 +357,7 @@ dat_raw <- tibble(data_files = data_files) %>%
                                   .x, summary = FALSE))) %>%
   mutate(head = map(data_files, ~ head_parser(data_path, .x)))
 
-# this remove the redundant 'Arena' column
+# this removes the redundant 'Arena' column
 dat_raw[[2]] = dat_raw[[2]] %>%
   map(~ select(.x, !c(X3)))
 
@@ -367,8 +374,11 @@ dat_raw[[3]] = dat_raw[[3]] %>%
 # check the modifications
 dat_raw[[2]][[1]]
 dat_raw[[3]][[1]]
+```
 
+The below code processes arena movement summaries contained in the bottom sections of output files
 
+```{r}
 # parse summary data from a file into a separate tibble - this is not used for now
 # processed only for consistency
 dat_raw_summ = tibble(data_files = data_files) %>%
