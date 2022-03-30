@@ -30,3 +30,5 @@ vignettes/*.pdf
 *.html
 *.pdf
 *.Rproj
+
+.DS_Store
