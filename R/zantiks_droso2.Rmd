@@ -21,6 +21,10 @@ library(lme4)
 library(lmerTest)
 library(here) # write out the path
 library(kableExtra)
+
+col_accent1 = "slateblue1"
+col_accent2 = "springgreen3"
+col_detail1 = "tomato2"
 ```
 
 # Locomotion
@@ -222,6 +226,8 @@ head(data_locomotion)
 
 ## Example visualisations nad basic summaries
 
+Histograms present raw and log-transformed total distance data. Scatter-whisker plot shows ranges of distance data (min to max distance travelled in total) with outliers marked by points.
+
 ```{r}
 data_locomotion_avg <- data_locomotion %>%
   group_by(Individuals_ID_well) %>%
@@ -230,20 +236,21 @@ data_locomotion_avg <- data_locomotion %>%
 # raw data variation
 data_locomotion_avg %>%
   ggplot(aes(x = avg)) +
-  geom_histogram() +
+  geom_histogram(fill = col_accent1) +
   theme_classic() + theme(text = element_text(size = 15)) +
   xlab("Mean arena distance")
 
 # log scale
 data_locomotion_avg %>%
   ggplot(aes(x = log(avg+1))) +
-  geom_histogram() +
+  geom_histogram(fill = col_accent1) +
   theme_classic() + theme(text = element_text(size = 15)) +
   xlab("Mean log(arena distance)")
 
 data_locomotion %>%
   ggplot(aes(x = Individuals_ID_well, y = log(arena_distance+1))) +
-  geom_boxplot(width = 0, outlier.size = 0.7) + theme_classic() + theme(axis.text.x = element_blank()) +
+  geom_boxplot(width = 0, outlier.size = 0.7, col = col_accent1) +
+  theme_classic() + theme(axis.text.x = element_blank()) +
   ylab("Arena distance") + xlab("Individuals")
 ```
 
@@ -258,7 +265,7 @@ violin <- na.omit(data_locomotion) %>%
   group_by(Individuals_ID_well) %>% 
   summarise(arena_distance = log(mean(arena_distance) +1), Sex = unique(Sex)) %>% 
   ggviolin(., x = "Sex", y = "arena_distance", add = c("jitter", "mean_se"),
-           error.plot = "crossbar", fill = 'skyblue') +
+           error.plot = "crossbar", fill = col_accent1, lwd = 0) +
   labs(y = "log(Mean arena distance)")
 violin
 ```
@@ -268,13 +275,13 @@ Simple linear model to explore undelrying variation.
 
 ```{r}
 # model: variance between rounds, individuals and batches, fixed effect of sex and assay date
-model1<- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (1|Individuals_ID_well) + (1|Datafile_ID),
+model1 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (1|Individuals_ID_well) + (1|Datafile_ID),
              data = data_locomotion)
 summary(model1)
 qplot(residuals(model1)) + theme_classic()
 
 # model: additional variation in sex effect between individuals (i.e. sex-specific between individual variance)
-model2<- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (Sex-1|Individuals_ID_well) + (1|Datafile_ID),
+model2 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (Sex-1|Individuals_ID_well) + (1|Datafile_ID),
              data = data_locomotion)
 
 # marginally off convergence but let's proceed
@@ -345,6 +352,7 @@ head_parser <- function(path, filename) {
 }
 ```
 
+## Data organisation and cleaning
 
 The below code generates a nested tibble (grouped by single analysis output files, i.e., `Filename`).
 
@@ -358,15 +366,15 @@ dat_raw <- tibble(data_files = data_files) %>%
   mutate(head = map(data_files, ~ head_parser(data_path, .x)))
 
 # this removes the redundant 'Arena' column
-dat_raw[[2]] = dat_raw[[2]] %>%
+dat_raw[[2]] <- dat_raw[[2]] %>%
   map(~ select(.x, !c(X3)))
 
 # rename variables in sub-tibble based on their real content
-dat_raw[[2]] = dat_raw[[2]] %>%
+dat_raw[[2]] <- dat_raw[[2]] %>%
   map(~ rename(.x, time = X1, Info = X2, Arena = X4, Action = X5, Zone_no = X6))
 
 # reformat the head sub-tibble
-dat_raw[[3]] = dat_raw[[3]] %>%
+dat_raw[[3]] <- dat_raw[[3]] %>%
   map(~ pivot_wider(.x, names_from = X3, values_from = X4)) %>%
   map(~ rename(.x, Datafile_ID = `Subject Identification`)) %>%
   map(~ select(.x, Apparatus, Datafile_ID))
@@ -376,17 +384,17 @@ dat_raw[[2]][[1]]
 dat_raw[[3]][[1]]
 ```
 
-The below code processes arena movement summaries contained in the bottom sections of output files
+The below code processes arena movement summaries contained in the bottom sections of output files; this data is not further used in the current protocol.
 
 ```{r}
 # parse summary data from a file into a separate tibble - this is not used for now
 # processed only for consistency
-dat_raw_summ = tibble(data_files = data_files) %>%
+dat_raw_summ <- tibble(data_files = data_files) %>%
   mutate(data = map(data_files, ~ data_parser(pattern1,
                                 data_path,
                                 .x,
                                 summary = T)))
-dat_raw_summ[[2]] = dat_raw_summ[[2]] %>%
+dat_raw_summ[[2]] <- dat_raw_summ[[2]] %>%
   map(~ select(.x, !c(X1, X2, X3))) %>%
   map(~ rename(.x, Summary_stat = X4))
 dat_raw_summ[[2]][[1]]
@@ -395,8 +403,8 @@ dat_raw_summ[[2]][[1]]
 Unnest the tibble and select relevant variables.
 
 ```{r}
-dat_un <- dat_raw
-dat_un = dat_raw %>%
+
+dat_un <- dat_raw %>%
   unnest(head) %>%
   unnest(data)
 
@@ -420,7 +428,6 @@ Bin into 10-min intervals (if binning would be needed or only first 10 mins of e
 
 ```{r}
 dat_an <- dat_un
-
 dat_an <- dat_an %>%
   mutate(Bin = ifelse(time > 600 & time < 1200, 1,
                       ifelse(time > 1200 & time < 1800, 2,
@@ -442,13 +449,18 @@ dat_an <- dat_an %>%
 dat_an %>% filter(Zone == 666)
 dat_an %>% filter(t_enter == 666)
 dat_an %>% filter(t_exit == 666)
-dat_an[86160:86180,] -> dat_ana
+
 # ALL GOOD! Note - this step is v. important and serves to test
 # if data points were sorted correctly
 # Single detected mistakes are likely final entries that failed to exit before assay end
 
+
 # Let's filter out the non-conforming cases and re-confirm the rest is ordered correctly
-dat_an <- dat_an %>% filter(Zone != 666)
+# This stage is critical: dplyr filter() function is terribly unintuitive - with the logical
+# condition "NOT" (!) it also drops NA values - thus we have to ensure with replace_na() they are kept
+# to preserve the ordering of enter-exit events
+
+dat_an <- dat_an %>% filter((Zone != 666) %>% replace_na(TRUE))
 dat_an <- dat_an %>%
   arrange(Data_file, Datafile_ID, Arena, time, Exit_zone)
 dat_an <- dat_an %>%
@@ -458,136 +470,183 @@ dat_an <- dat_an %>%
 dat_an %>% filter(Zone == 666)
 ```
 
-Simplify data by putting enter and exit data in one row:
+Simplify data by putting enter and exit data in one row.
 
 ```{r}
 dat_an <- dat_an %>%
-  filter(is.na(Zone) | Zone != 666) %>%
+  # filter(is.na(Zone)) %>% # this filter is just for testing purposes (it removes the 'Exit_zone' portion of data)
   select(Data_file, Datafile_ID, time, Arena, Row_ID, Bin, Zone, t_enter, t_exit)
 dat_an <- dat_an %>%
   mutate(t_exit = lead(t_exit))
 dat_an <- na.omit(dat_an)
 dat_an <- dat_an %>%
   mutate(t_zone = t_exit - t_enter)
-
 dat_an
 ```
 
-Remove center zone (middle of the Y-maze).
+Remove center zone (middle of the Y-maze). In an alternative version of analysis this can be included by considering the middle zone as equally valid spatial choice for flies. Below we simplify the analysis by considering only arm zones.
 
 ```{r}
-dat_an2 <- dat_an %>% filter(zone != 4)
+dat_an2 <- dat_an %>% filter(Zone != 4)
 dat_an2
 ```
 
-We need to work separately for each individual - the easiest is to separate individuals into their own subtibbles and work on them by vectorizing operations - to achieve this we have to identify each individual (by pasting together file name and arena).
+## Y-maze movements analysis
+
+We need to work separately for each individual - the easiest is to separate individuals into their own sub-tibbles and work on them by vectorising operations - to achieve this we have to identify each individual (by pasting together file name and arena).
 
 ```{r}
-well_arena <- read_delim(here('Data', 'sex', 'well_arena_corresp.csv'), delim = ';')
+well_arena <- read_delim(here('Data', 'run_data', 'well_arena_corresp.csv'), delim = ';')
 
-names(dat_an2)[2] <- "Datafile_ID"
 dat_an2 <- dat_an2 %>%
-  left_join(select(run_register, Datafile_ID, Individuals_ID, Plate, Unit_ID), by = "Datafile_ID") %>%
-  mutate(ymaze_arena = paste0(Plate, "_", arena)) %>%
+  left_join(select(run_register, Datafile_ID, Individuals_ID, Batch_ID, Plate, Unit_ID), by = "Datafile_ID") %>%
+  mutate(Ymaze_arena = paste0(Plate, "_", Arena)) %>%
   # mutate(fly_id = paste(gsub('[A-Za-z0-9]+\\/([A-Za-z0-9_-]+)\\.csv', '\\1', data_files), arena, sep = "_"))
-  mutate(fly_id = paste0(Datafile_ID, "_", ymaze_arena)) %>%
-  left_join(well_arena, by = "ymaze_arena")
+  # mutate(fly_id = paste0(Datafile_ID, "_", Ymaze_arena)) %>% # not really necessary
+  left_join(select(well_arena, Ymaze_arena, Plate48well), by = "Ymaze_arena") %>%
+  mutate(Individuals_ID_well = paste0(Individuals_ID, "_", Plate48well)) %>%
+  select(Datafile_ID, Batch_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone)
 
 # split datafile into individual flies
-dat_an2 <- dat_an2 %>% split(., .[, "fly_id"])
+dat_an2 <- dat_an2 %>% split(., .[, "Individuals_ID_well"])
 
 dat_an2 <- dat_an2 %>%
-  map(~ mutate(.x, lag_zone = lag(zone))) %>%
-  map(~ mutate(.x, turn = case_when(lag_zone==1 & zone==2 ~ 'L',
-                                  lag_zone==1 & zone==3 ~ 'R',
-                                  lag_zone==2 & zone==1 ~ 'R',
-                                  lag_zone==2 & zone==3 ~ 'L',
-                                  lag_zone==3 & zone==1 ~ 'L',
-                                  lag_zone==3 & zone==2 ~ 'R',
-                                  # lag_zone==zone ~ 'X',
-                                  TRUE~ NA_character_ ))) %>%
-  map(~ select(.x, data_files, Datafile_ID, fly_id, time, ymaze_arena, Individuals_ID, plate48well, bin, zone, t_zone, turn))
+  map(~ mutate(.x, Lag_zone = lag(Zone))) %>%
+  map(~ mutate(.x, Turn = case_when(Lag_zone==1 & Zone==2 ~ 'L',
+                                  Lag_zone==1 & Zone==3 ~ 'R',
+                                  Lag_zone==2 & Zone==1 ~ 'R',
+                                  Lag_zone==2 & Zone==3 ~ 'L',
+                                  Lag_zone==3 & Zone==1 ~ 'L',
+                                  Lag_zone==3 & Zone==2 ~ 'R',
+                                  # lag_zone==zone ~ 'X', # this enables additional decision type = stay in the given zone
+                                  TRUE ~ NA_character_ ))) %>%
+  map(~ select(.x, Datafile_ID, Batch_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone, Turn))
 
 dat_an3 <- bind_rows(dat_an2)
 dat_an3 <- dat_an3 %>%
-  arrange(data_files, Datafile_ID, fly_id, bin)
+  arrange(Datafile_ID, Individuals_ID_well, Bin)
 
 dat_an4 <- na.omit(dat_an3)
 dat_an4
 ```
 
-Analysis of tetragrams.
+Resulting data could be further refined, e.g. by removing entries with `t_zone` below certain threshold (i.e., ignoring cases where a flies only very briefly entered a zone and exitted right away).
 
+## Analysis of trigrams
+
+There are several paradigms of anaylsing Y-maze data. One is based on tetragram analysis (i.e., sequences of 4 consecutive turns in the maze). Here we simplify it to trigram analsyis to increase the power and effective number of consecutive movement sequences.
 ```{r}
-dat_tet <- dat_an4 %>%
-  group_by(fly_id)
+dat_tri <- dat_an4 %>%
+  group_by(Individuals_ID_well)
 
-dat_tet <- dat_tet %>%
-  mutate(tetragram = str_c(turn, lead(turn), lead(turn,2), lead(turn,3))) %>%
+dat_tri <- dat_tri %>%
+  mutate(Trigram = str_c(Turn, lead(Turn), lead(Turn,2))) %>%
   ungroup() %>%
-  select(fly_id, turn, tetragram)
-dat_tet
+  select(Individuals_ID_well, Turn, Trigram)
+dat_tri
 ```
 
-We can now summarise tetragrams and turns:
+We can now summarise trigrams and turns:
 
 ```{r}
-all_tetragrams <- unique(dat_tet$tetragram)
+all_trigrams <- unique(dat_tri$Trigram)
 
-tetra_long <- dat_tet %>%
-  select(-turn) %>%
+tri_long <- dat_tri %>%
+  select(-Turn) %>%
   na.omit() %>%
-  group_by(fly_id) %>%
+  group_by(Individuals_ID_well) %>%
   table() %>%
   as_tibble() %>%
-  arrange(fly_id)
+  arrange(Individuals_ID_well)
 
-tetra_wide = tetra_long %>% pivot_wider(names_from = tetragram, values_from = n)
+tri_wide <- tri_long %>% pivot_wider(names_from = Trigram, values_from = n)
 
-turn_long = dat_tet %>%
-  select(-tetragram) %>%
+turn_long = dat_tri %>%
+  select(-Trigram) %>%
   na.omit() %>%
-  group_by(fly_id) %>%
+  group_by(Individuals_ID_well) %>%
   table() %>%
   as_tibble() %>%
-  arrange(fly_id)
+  arrange(Individuals_ID_well)
 
-turn_wide = turn_long %>% pivot_wider(names_from = turn, values_from = n)
+turn_wide <- turn_long %>% pivot_wider(names_from = Turn, values_from = n)
 
-data = tetra_wide %>%
-  left_join(turn_wide, by = c("fly_id")) %>%
+data_ymaze <- tri_wide %>%
+  left_join(turn_wide, by = 'Individuals_ID_well') %>%
   mutate(total_turns = L+R,
-         reps = LLLL + RRRR,
-         alter = RLRL + LRLR,
+         reps = LLL + RRR,
+         alter = RLR + LRL,
+         partial = RRL + RLL + LRR + LLR,
          rel_reps = (reps*100)/total_turns,
          rel_alter = (alter*100)/total_turns,
          rel_R = (R*100)/total_turns,
-         rel_L = (L*100)/total_turns)
+         rel_L = (L*100)/total_turns,
+         asymmetry = 1 - R/L) # 0 = symmetrical, <1 = 
 
-data
+data_ymaze
 ```
 
-## Linking to sex data - NOT FINISHED
+## Linking to sex data
 
 ```{r}
-
-
-data <- data %>%
-  left_join(run_register)
-
+data_ymaze <- data_ymaze %>%
+  left_join(sex, by = 'Individuals_ID_well')
 ```
 
 ## Example visualisations of y-maze data
 
+Distribution of trigrams
+
 ```{r}
-
-tetra_long %>%
-  filter(n > 0) %>%
-  ggplot(aes(x = tetragram, y = n)) +
-  geom_bar(stat = "sum") +
-  theme_classic() + labs(x = 'Tetragram', y = 'Total number') +
+tri_long %>%
+  # filter(n > 0) %>%
+  ggplot(aes(x = Trigram, y = n)) +
+  geom_bar(stat = "sum", fill = "slateblue2") +
+  theme_classic() + labs(x = 'Trigram', y = 'Total number') +
   theme(legend.position = "none", text = element_text(size = 15))
+```
 
+Correlation of locomotor activity with alteration and repetition patterns. Patterns suggest a zero-inflated model may be warranted (not explored in this paper).
 
+```{r}
+data_ymaze %>% left_join(select(data_locomotion, -Sex), by = 'Individuals_ID_well') %>%
+  select(arena_distance, Round_f, Sex, rel_reps, rel_alter) %>%
+  ggplot(aes(x = arena_distance, y = rel_reps, colour = Sex)) +
+  geom_point() + geom_smooth(method = 'lm') +
+  scale_color_manual(values = c(col_accent1, col_accent2)) +
+  theme_classic() + labs(x = 'Locomotion activity', y = 'Proportion of repetitions')
 
+data_ymaze %>% left_join(select(data_locomotion, -Sex), by = 'Individuals_ID_well') %>%
+  select(arena_distance, Round_f, Sex, rel_reps, rel_alter) %>%
+  ggplot(aes(x = arena_distance, y = rel_alter, colour = Sex)) +
+  geom_point() + geom_smooth(method = 'lm') +
+  scale_color_manual(values = c(col_accent1, col_accent2)) +
+  theme_classic() + labs(x = 'Locomotion activity', y = 'Proportion of alterations')
+```
+
+General variation in repetition and alteration behaviour.
+
+```{r}
+data_ymaze %>% pivot_longer(cols = c('rel_reps', 'rel_alter'), names_to = 'Type') %>%
+  ggplot(aes(x = value, fill = Type)) +
+  geom_histogram() +
+  theme_classic() +
+  scale_fill_manual(values = c(col_accent1, col_accent2), labels = c("Alterations", "Repetitions")) +
+  labs(x = "Proportion of repetitions", fill = "Behaviour")
+```
+
+Sex differences in Y-maze behaviour
+
+```{r}
+violin <- data_ymaze %>% 
+  ggviolin(., x = "Sex", y = "rel_reps", add = c("jitter", "mean_se"),
+           error.plot = "crossbar", fill = col_accent2, lwd = 0) +
+  labs(y = "Proportion of repetitions")
+violin
+
+violin <- data_ymaze %>% 
+  ggviolin(., x = "Sex", y = "rel_alter", add = c("jitter", "mean_se"),
+           error.plot = "crossbar", fill = col_detail1, lwd = 0) +
+  labs(y = "Proportion of alterations")
+violin
 ```
