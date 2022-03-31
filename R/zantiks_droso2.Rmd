@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 output:
   rmdformats::robobook:
       
-      code_folding: hide
+      code_folding: show
       toc_depth: 3
 editor_options: 
   chunk_output_type: console
@@ -111,12 +111,12 @@ run_register <- read_delim(here('Data', 'run_data', 'run_register_pilot2.csv'), 
 glimpse(run_register)
 
 dat_temp_df <- dat_temp_df %>%
-  left_join(select(run_register, Datafile_ID, Individuals_ID))
+  left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID))
 
 dat_temp_df <- dat_temp_df %>%
     mutate(Individuals_ID_well = paste0(Individuals_ID, '_', Well_ID))
 
-dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date,
+dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Batch_ID, Exp_block,
                                       temperature, round, arena_distance)
 glimpse(dat_temp_df)
 ```
@@ -163,14 +163,14 @@ data_compiler <- function(filename, data_path, run_register) {
          Variable = VARIABLE, Date = date, Well_ID = well_id)
   
   dat_temp_df <- dat_temp_df %>%
-    left_join(select(run_register, Datafile_ID, Individuals_ID))
+    left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID))
   
   dat_temp_df <- dat_temp_df %>%
     mutate(Individuals_ID_well = paste0(Individuals_ID, '_', Well_ID))
   
   dat_temp_df$Filename <- filename
   
-  dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Filename,
+  dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Filename, Exp_block, Batch_ID,
                                       temperature, round, arena_distance)
   
   return(dat_temp_df)
@@ -215,7 +215,7 @@ Create final dataset.
 
 ```{r}
 data_locomotion <- data_locomotion %>%
-  select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, arena_distance, Sex, Round_f)
+  select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Exp_block, Batch_ID, arena_distance, Sex, Round_f)
 
 data_locomotion$Sex <- as.factor(data_locomotion$Sex)
 data_locomotion$Round_f <- as.factor(data_locomotion$Round_f)
@@ -275,13 +275,16 @@ Simple linear model to explore undelrying variation.
 
 ```{r}
 # model: variance between rounds, individuals and batches, fixed effect of sex and assay date
-model1 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (1|Individuals_ID_well) + (1|Datafile_ID),
+model1 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Individuals_ID_well) + (1|Exp_block),
+             data = data_locomotion)
+model1.1 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Exp_block),
              data = data_locomotion)
 summary(model1)
+anova(model1, model1.1)
 qplot(residuals(model1)) + theme_classic()
 
 # model: additional variation in sex effect between individuals (i.e. sex-specific between individual variance)
-model2 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (1|Round_f) + (Sex-1|Individuals_ID_well) + (1|Datafile_ID),
+model2 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (Sex-1|Individuals_ID_well) + (1|Exp_block),
              data = data_locomotion)
 
 # marginally off convergence but let's proceed
@@ -499,13 +502,13 @@ We need to work separately for each individual - the easiest is to separate indi
 well_arena <- read_delim(here('Data', 'run_data', 'well_arena_corresp.csv'), delim = ';')
 
 dat_an2 <- dat_an2 %>%
-  left_join(select(run_register, Datafile_ID, Individuals_ID, Batch_ID, Plate, Unit_ID), by = "Datafile_ID") %>%
+  left_join(select(run_register, Datafile_ID, Individuals_ID, Plate, Unit_ID), by = "Datafile_ID") %>%
   mutate(Ymaze_arena = paste0(Plate, "_", Arena)) %>%
   # mutate(fly_id = paste(gsub('[A-Za-z0-9]+\\/([A-Za-z0-9_-]+)\\.csv', '\\1', data_files), arena, sep = "_"))
   # mutate(fly_id = paste0(Datafile_ID, "_", Ymaze_arena)) %>% # not really necessary
   left_join(select(well_arena, Ymaze_arena, Plate48well), by = "Ymaze_arena") %>%
   mutate(Individuals_ID_well = paste0(Individuals_ID, "_", Plate48well)) %>%
-  select(Datafile_ID, Batch_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone)
+  select(Datafile_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone)
 
 # split datafile into individual flies
 dat_an2 <- dat_an2 %>% split(., .[, "Individuals_ID_well"])
@@ -520,7 +523,7 @@ dat_an2 <- dat_an2 %>%
                                   Lag_zone==3 & Zone==2 ~ 'R',
                                   # lag_zone==zone ~ 'X', # this enables additional decision type = stay in the given zone
                                   TRUE ~ NA_character_ ))) %>%
-  map(~ select(.x, Datafile_ID, Batch_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone, Turn))
+  map(~ select(.x, Datafile_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone, Turn))
 
 dat_an3 <- bind_rows(dat_an2)
 dat_an3 <- dat_an3 %>%
@@ -581,7 +584,7 @@ data_ymaze <- tri_wide %>%
          rel_alter = (alter*100)/total_turns,
          rel_R = (R*100)/total_turns,
          rel_L = (L*100)/total_turns,
-         asymmetry = 1 - R/L) # 0 = symmetrical, <1 = 
+         asymmetry = 1 - (R/L)) # 0 = symmetrical, <1 = 
 
 data_ymaze
 ```
@@ -609,16 +612,16 @@ tri_long %>%
 Correlation of locomotor activity with alteration and repetition patterns. Patterns suggest a zero-inflated model may be warranted (not explored in this paper).
 
 ```{r}
-data_ymaze %>% left_join(select(data_locomotion, -Sex), by = 'Individuals_ID_well') %>%
-  select(arena_distance, Round_f, Sex, rel_reps, rel_alter) %>%
-  ggplot(aes(x = arena_distance, y = rel_reps, colour = Sex)) +
+data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>%
+  select(avg, Sex, rel_reps, rel_alter) %>%
+  ggplot(aes(x = avg, y = rel_reps, colour = Sex)) +
   geom_point() + geom_smooth(method = 'lm') +
   scale_color_manual(values = c(col_accent1, col_accent2)) +
   theme_classic() + labs(x = 'Locomotion activity', y = 'Proportion of repetitions')
 
-data_ymaze %>% left_join(select(data_locomotion, -Sex), by = 'Individuals_ID_well') %>%
-  select(arena_distance, Round_f, Sex, rel_reps, rel_alter) %>%
-  ggplot(aes(x = arena_distance, y = rel_alter, colour = Sex)) +
+data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>%
+  select(avg, Sex, rel_reps, rel_alter) %>%
+  ggplot(aes(x = avg, y = rel_alter, colour = Sex)) +
   geom_point() + geom_smooth(method = 'lm') +
   scale_color_manual(values = c(col_accent1, col_accent2)) +
   theme_classic() + labs(x = 'Locomotion activity', y = 'Proportion of alterations')
@@ -646,7 +649,46 @@ violin
 
 violin <- data_ymaze %>% 
   ggviolin(., x = "Sex", y = "rel_alter", add = c("jitter", "mean_se"),
-           error.plot = "crossbar", fill = col_detail1, lwd = 0) +
+           error.plot = "crossbar", fill = col_accent1, lwd = 0) +
   labs(y = "Proportion of alterations")
 violin
+
+violin <- data_ymaze %>% 
+  ggviolin(., x = "Sex", y = "asymmetry", add = c("jitter", "mean_se"),
+           error.plot = "crossbar", fill = col_detail1, lwd = 0) +
+  labs(y = "Handedness (turning asymmetry)")
+violin
 ```
+
+Formal analysis if alteration behaviour depends on overall locomotion activity of flies and if it interacts with sex.
+
+```{r}
+# model: variance between rounds, individuals and batches, fixed effect of sex and assay date
+model3 <- glm(alter ~ Sex * avg,
+             data = data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well'),
+             family = 'poisson')
+summary(model3)
+data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>%
+  ggplot(aes(x = avg, y = alter, colour = Sex)) +
+  geom_point() + geom_smooth(method = 'lm') +
+  scale_color_manual(values = c(col_accent1, col_accent2)) +
+  theme_classic() + labs(x = 'Locomotion activity', y = 'Number of alterations')
+# there is one clear outlier that can be an artifact
+
+
+model4 <- glm(alter ~ Sex * avg,
+             data = data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>% filter(alter < 100),
+             family = 'poisson')
+summary(model4)
+data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>%
+  filter(alter < 100) %>%
+  ggplot(aes(x = avg, y = alter, colour = Sex)) +
+  geom_point() + geom_smooth(method = 'lm') +
+  scale_color_manual(values = c(col_accent1, col_accent2)) +
+  theme_classic() + labs(x = 'Locomotion activity', y = 'Number of alterations')
+```
+
+# Habituation experiment
+
+Analysis of habituation data based on Allen TA, Budenberg WJ (2021). Replicating Light-Off Startle Responses in Drosophila melanogaster. BiorXiv.
+
