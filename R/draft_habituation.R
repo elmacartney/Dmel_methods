@@ -1,23 +1,4 @@
 # Modified after Allen & Bundenberg 2020
-# Needs to be tidied and rewritten
-
-
-# Introduction ------------------------------------------------------------
-
-# DISCLAIMER:
-# This script was used to analyse .csv files output directly from the Zantiks
-# MWP unit. Whilst it illustrates how R can be used to process data from the
-# Zantiks unit, Zantiks Ltd. cannot guarantee this is how you want to run your
-# experiments or analyse your data.
-
-# The script below is for analysing adult Drosophila light-off startle data
-# from the Zantiks Ltd MWP unit.
-
-# To run this script you need the appropriate packages installed under 'Prerequisites'.
-
-# Distance travelled is the main measure investigated. Activity is a measure
-# being developed at the time of writing and relates to the pixel change overall
-# in the video image.
 
 # Prerequisites -----------------------------------------------------------
 
@@ -38,16 +19,14 @@ library(RColorBrewer) # for colour palettes
 # Data Loader -------------------------------------------------------------
 
 # setting data directory
-DATA_DIR <- here("data", "habituation") #specify directory of zantiks file
-setwd(DATA_DIR)
-getwd()
+data_path <- here("data", "habituation/") #specify directory of zantiks habituation files
 
 #create list of files from directory
-file_list <- list.files(pattern = "*.csv")
+file_list <- list.files(data_path)
 
 #create header from first file
-df<-
-  file_list[1] %>%
+df <-
+  paste0(data_path, file_list[1]) %>%
   read_csv(skip=4,col_names = TRUE, guess_max = 100) %>%
   head(0)
 
@@ -55,8 +34,9 @@ df<-
 new_list<- c()
 
 for (i in file_list){
-  new_list[[i]]<-
-    read_csv(i,skip=4, col_names = TRUE, guess_max = 100) %>%
+  new_list[[i]] <-
+    read_csv(paste0(data_path, i),
+             skip=4, col_names = TRUE, guess_max = 100) %>%
     head(-1)
 }
 
@@ -64,7 +44,6 @@ for (i in file_list){
 for (i in new_list){
   df<-add_row(df,i)
 }
-
 
 # Data Formatting ---------------------------------------------------------
 

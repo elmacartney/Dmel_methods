@@ -21,6 +21,11 @@ library(lme4)
 library(lmerTest)
 library(here) # write out the path
 library(kableExtra)
+library(sjlabelled)
+library(ggpubr)
+library(rstatix)
+library(car)
+library(RColorBrewer)
 
 col_accent1 = "slateblue1"
 col_accent2 = "springgreen3"
@@ -688,7 +693,190 @@ data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>%
   theme_classic() + labs(x = 'Locomotion activity', y = 'Number of alterations')
 ```
 
+
+
+
 # Habituation experiment
 
 Analysis of habituation data based on Allen TA, Budenberg WJ (2021). Replicating Light-Off Startle Responses in Drosophila melanogaster. BiorXiv.
 
+
+## Load data
+
+```{r}
+#specify directory of zantiks habituation files
+data_path <- here("data", "habituation/") 
+
+#create list of files from directory
+file_list <- list.files(data_path)
+
+#create header from first file
+df <-
+  paste0(data_path, file_list[1]) %>%
+  read_csv(skip=4,col_names = TRUE, guess_max = 100) %>%
+  head(0)
+
+#create new list without demographic info
+new_list<- c()
+
+for (i in file_list){
+  new_list[[i]] <-
+    read_csv(paste0(data_path, i),
+             skip=4, col_names = TRUE, guess_max = 100) %>%
+    head(-1)
+}
+
+#append all files to df
+for (i in new_list){
+  df<-add_row(df,i)
+}
+```
+
+
+## Format, select and rename variables
+
+In the course of it we also remove wells F6, F7, F8 (they are always empty).
+
+```{r}
+df <- df %>% select(!c(RUNTIME, UNIT, TIMESLOT, TEMPERATURE))
+#convert variables to factors for anova
+df<-as_factor(df,BLOCK)
+df<-as_factor(df,TYPE)
+
+df <- df %>% rename(Datafile_ID = PLATE_ID, time_bin = TIME_BIN,
+                    Block = BLOCK, Trial = TRIAL, Type = TYPE,
+                    pre_post_counter = PRE_POST_COUNTER,
+                    startle_number = STARTLE_NUMBER)
+
+df <- df %>% select(-c(F6:F8), -c(F6MSD:F8MSD))
+```
+
+
+## Create file with total population columns
+
+Here we use the mean squared distance data and total distance travelled from each well to assemble a plate-level (hence - population) measure of fly behaviour during the trial. These produce two summary statistics of fly activity in arenas.
+
+```{r}
+pop_data<-mutate(df,total_dist = rowSums(select(df,!ends_with("MSD"),
+                                                -Datafile_ID, -time_bin, -Block,
+                                                -Trial, -Type, -pre_post_counter,
+                                                -startle_number)))
+pop_data<-mutate(pop_data,total_act = rowSums(select(df,ends_with("MSD"))))
+```
+
+
+
+## Create file with well factor and distance variable
+
+```{r}
+dfile_dist <- df %>% 
+  select(!ends_with("MSD")) %>%
+  gather(key = "Well", value = "distance", -Datafile_ID,
+         -time_bin, -Block, -Trial, -Type, -pre_post_counter,
+         -startle_number) %>%
+  convert_as_factor(Well)
+
+# create file with well factor and MSD activity dv only
+dfile_act<- df %>%
+  select(ends_with("MSD")) %>%
+  gather(key = "Well", value = "activity") %>%
+  convert_as_factor(Well)
+
+# remove duplicate well variable before adding activity data
+dfile_act <- select(dfile_act, -'Well')
+
+# add activity column to rest of data
+df <- add_column(dfile_dist, dfile_act)
+
+# remove acclimation data
+no_acclimation <- df %>%
+  filter(Type != "ACCLIMATION")
+
+# create data file with only startles from first repeat (Block == 1)
+startles_only <- filter(no_acclimation, Type == "STARTLE", Block == 1)
+pop_startles_only<-filter(pop_data, Type == "STARTLE", Block == 1)
+```
+
+
+## Merge with individual data to idenitfy flies
+
+We also add information abou sex.
+
+```{r}
+startles_only <- startles_only %>%
+    left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID))
+
+startles_only <- startles_only %>%
+  mutate(Individuals_ID_well = paste0(Individuals_ID, "_", Well))
+
+startles_only <- startles_only %>%
+  left_join(sex, by = "Individuals_ID_well")
+```
+
+
+## Population data averaged across blocks
+
+```{r}
+pop_startles_block <-
+  pop_startles_only %>%
+  group_by(startle_number) %>%
+  get_summary_stats(total_dist, type = "mean_sd")
+```
+
+## Additional cleaning
+
+Below we generate overall summary of distances travelled by individual flies during startles 1 through 3, in two variants: including and excluding flies that did not move at all during all three repeats of startling.
+
+```{r}
+startles_only <- startles_only %>%
+  group_by(Individuals_ID_well)
+
+startles_only_act <- startles_only %>%
+  filter(sum(distance) != 0) %>%
+  ungroup()
+
+overall_summary_act <- startles_only_act %>%
+  group_by(startle_number) %>%
+  get_summary_stats(distance, type = "mean_sd")
+
+overall_summary <- startles_only %>%
+  group_by(startle_number) %>%
+  get_summary_stats(distance, type = "mean_sd")
+```
+
+
+# Simple graphs
+
+```{r}
+# pop habituation averaged across blocks graph
+gg_pop_hab_block <- ggplot(data=pop_startles_block, aes(x = startle_number, y = mean,)) +
+  xlab("Trial") +
+  ylab("Average Population Distance Travelled (pixels)") +
+  geom_errorbar(aes(ymin=mean-(sd/sqrt(2)), ymax=mean+(sd/sqrt(2))), width=1, color = col_accent1) +
+  geom_line() +
+  geom_point() + theme_classic() + theme(text = element_text(size = 15))
+gg_pop_hab_block
+
+
+# habituation data by individual - only active flies
+gg_habituation<-ggplot(data=startles_only_act, aes(x = startle_number, y = distance)) +
+  facet_wrap(facets = ~ Individuals_ID_well) +
+  geom_line() +
+  geom_point(col = col_accent1) + theme_classic()
+gg_habituation
+```
+
+
+# Formal random slope analysis
+
+```{r}
+
+model5 <- lmer(distance ~ Sex*startle_number + (1|Individuals_ID_well),
+               data = startles_only_act)
+summary(model5)
+
+
+model6 <- lmer(distance ~ Sex*startle_number + (1+startle_number|Individuals_ID_well),
+               data = startles_only_act)
+summary(model6)
+```
