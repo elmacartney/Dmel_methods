@@ -229,7 +229,7 @@ head(data_locomotion)
 
 
 
-## Example visualisations nad basic summaries
+## Example visualisations nad basic summaries and simple analysis
 
 Histograms present raw and log-transformed total distance data. Scatter-whisker plot shows ranges of distance data (min to max distance travelled in total) with outliers marked by points.
 
@@ -292,6 +292,7 @@ qplot(residuals(model1)) + theme_classic()
 model2 <- lmer(scale(log(arena_distance+1)) ~ Sex + as.factor(Date) + (Sex-1|Individuals_ID_well) + (1|Exp_block),
              data = data_locomotion)
 
+
 # marginally off convergence but let's proceed
 summary(model2)$coef %>%
   kbl() %>%
@@ -304,6 +305,29 @@ summary(model2)$varcor %>%
 
 anova(model1, model2) %>% kbl() %>% kable_material(c("striped"))
 # difference in sex-specific variances significant (likelihood-ration test)
+```
+
+Below the analogues of the above models fittewd using the `lme` function (i.e., allowing for between-sex heteroscedasticity in residuals).
+
+```{r}
+model1.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
+               random = list(~1|Exp_block, ~1|Individuals_ID_well),
+             data = data_locomotion, na.action = na.omit)
+summary(model1.lme)
+model2.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
+               random = list(~1|Exp_block, ~Sex-1|Individuals_ID_well),
+             data = data_locomotion, na.action = na.omit)
+summary(model2.lme)
+## testing of sex-heterogeneity in between-individual variance
+anova(model1.lme, model2.lme)
+
+model2.lme.h <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
+               random = list(~1|Exp_block, ~Sex-1|Individuals_ID_well),
+               weights = varIdent(form=~1|Sex),
+             data = data_locomotion, na.action = na.omit)
+summary(model2.lme.h)
+## testing of sex-specific heteroscedasticity of residual variance
+anova(model2.lme, model2.lme.h)
 ```
 
 
@@ -601,7 +625,7 @@ data_ymaze <- data_ymaze %>%
   left_join(sex, by = 'Individuals_ID_well')
 ```
 
-## Example visualisations of y-maze data
+## Example visualisations of y-maze data and simple analysis
 
 Distribution of trigrams
 
@@ -871,12 +895,15 @@ gg_habituation
 
 ```{r}
 
-model5 <- lmer(distance ~ Sex*startle_number + (1|Individuals_ID_well),
+model5 <- lmer(distance ~ Sex*startle_number + (1|Individuals_ID_well) + (1|Exp_block),
                data = startles_only_act)
 summary(model5)
 
 
-model6 <- lmer(distance ~ Sex*startle_number + (1+startle_number|Individuals_ID_well),
+model6 <- lmer(distance ~ Sex*startle_number + (1+startle_number|Individuals_ID_well)  + (1|Exp_block),
                data = startles_only_act)
 summary(model6)
+
+## comparison of intercept-only and random slopes models
+anova(model5, model6)
 ```
