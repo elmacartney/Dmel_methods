@@ -351,7 +351,7 @@ data_files <- list.files(here('Data/ymaze/'), recursive = T)
 data_files[1:8]
 ```
 
-The below parser identifies lines in the dataset that directly relate to zone-switching data and extracts them, or (when `summary = TRUE`) it extract the arena distances summaries from the bottom section of the file.
+The below parser identifies lines in the dataset that directly relate to zone-switching data and extracts them, or (when `summary = TRUE`) it extracts the arena distances summaries from the bottom section of the file.
 
 ```{r}
 # helper functions extracting the data rows and the header rows
@@ -488,8 +488,7 @@ dat_an %>% filter(Zone == 666)
 dat_an %>% filter(t_enter == 666)
 dat_an %>% filter(t_exit == 666)
 
-# ALL GOOD! Note - this step is v. important and serves to test
-# if data points were sorted correctly
+# ALL GOOD! Note - this step is very important and serves to test if data points were sorted correctly
 # Single detected mistakes are likely final entries that failed to exit before assay end
 
 
@@ -568,7 +567,7 @@ dat_an4 <- na.omit(dat_an3)
 dat_an4
 ```
 
-Resulting data could be further refined, e.g. by removing entries with `t_zone` below certain threshold (i.e., ignoring cases where a flies only very briefly entered a zone and exitted right away).
+Resulting data could be further refined, e.g. by removing entries with `t_zone` below certain threshold (i.e., ignoring cases where a flies only very briefly entered a zone and exited right away).
 
 ## Analysis of trigrams
 
@@ -765,7 +764,7 @@ for (i in new_list){
 
 ## Format, select and rename variables
 
-In the course of it we also remove wells F6, F7, F8 (they are always empty).
+In the course of it we also remove wells F6, F7, F8 (they are always empty in our design).
 
 ```{r}
 df <- df %>% select(!c(RUNTIME, UNIT, TIMESLOT, TEMPERATURE))
@@ -830,7 +829,7 @@ pop_startles_only<-filter(pop_data, Type == "STARTLE", Block == 1)
 
 ## Merge with individual data to idenitfy flies
 
-We also add information abou sex.
+We also add information about sex.
 
 ```{r}
 startles_only <- startles_only %>%
@@ -855,7 +854,7 @@ pop_startles_block <-
 
 ## Additional cleaning
 
-Below we generate overall summary of distances travelled by individual flies during startles 1 through 3, in two variants: including and excluding flies that did not move at all during all three repeats of startling.
+Below we generate overall summary of distances traveled by individual flies during startles 1 through 3, in two variants: including and excluding flies that did not move at all during all three repeats of startling.
 
 ```{r}
 startles_only <- startles_only %>%
