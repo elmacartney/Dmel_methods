@@ -32,11 +32,14 @@ col_accent2 = "springgreen3"
 col_detail1 = "tomato2"
 ```
 
+TODO: 
+One of my main comments, it would be good if all the subsections of the assays had the same/similar titles where possible (e.g., "Data parsing" vs "Data loading", "Data organisation" vs "Load data". Some assays have heading for "Linking sex" and others dont etc)
+
 # Locomotion
 
 ## Data parsing
 
-First let's test-load one data file to see how to trim it into relevant bits. Definition in this files is so that first 4 rows and firts 6 columns are redundant.
+First let's test-load one data file to see how to trim it into relevant bits. Definition in this files is so that first 4 rows and first 6 columns are redundant.
 
 The first portion loads and parses the raw data file lines.
 
@@ -54,6 +57,8 @@ In the next step we test the approach on several steps. First - we process a sam
 # read in one specific file
 dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
 glimpse(dat_temp)
+
+#TODO this code does not work for me - it says connot open the connection: ERIN
 ```
 
 The loaded data is just a vector of strings, each being a line from the original CSV file. In the next chunk we skip the first 4 lines (fixed number, lines containing technical parameters of the units), and load 5 lines (which excludes the header line - so in fact 6 lines), skipping the last technical line. At the end we clean the file (removing empty columns `2:6` and wells `c(F6, F7, F8)` - they are always empty in our system). Adjust as needed. The resulting file contains each assayed well as separate column, and for each there are 5 times intervals of locomotion monitoring.
@@ -126,13 +131,14 @@ dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Dataf
 glimpse(dat_temp_df)
 ```
 
-Writing a function and using `map` to apply data loading and wrangling to all files. Note: the function uses the pattern found in text files so an important point - do not re-save Zantiks CSV files with any external software (be it MS Excel, Numbers, Google Sheets, etc.) as it will mess up with the formatting and the way text strings are coded. Adjust REs accordingly to adapt it to your file structure whenever needed.
+Writing a function and using `map` to apply data loading and wrangling to all files. 
+Note: the function uses the pattern found in text files so an important point is:do not re-save Zantiks CSV files with any external software (be it MS Excel, Numbers, Google Sheets, etc.) as it will mess with the formatting and the way text strings are coded. Adjust REs accordingly to adapt it to your file structure whenever needed.
 
 ```{r}
 data_compiler <- function(filename, data_path, run_register) {
   
-  ## ARG filename     vector or list of file names to process (only files, no full paths)
-  ## ARG data_path    text string with the path to access all files
+  ## ARG filename vector or list of file names to process (only files, no full paths)
+  ## ARG data_path text string with the path to access all files
   ## ARG run_register database of all runs with datafile IDs and sexing IDs
   
   ## ARGS to develop: passing custom RE, custom wells to skip, custom columns to skip
@@ -229,9 +235,9 @@ head(data_locomotion)
 
 
 
-## Example visualisations nad basic summaries and simple analysis
+## Example visualisations and basic summaries and simple analysis
 
-Histograms present raw and log-transformed total distance data. Scatter-whisker plot shows ranges of distance data (min to max distance travelled in total) with outliers marked by points.
+Histograms present raw and log-transformed total distance data. Scatter-whisker plot shows ranges of distance data (min to max distance traveled in total) with outliers marked by points.
 
 ```{r}
 data_locomotion_avg <- data_locomotion %>%
@@ -301,13 +307,13 @@ summary(model2)$coef %>%
 summary(model2)$varcor %>%
   kbl() %>%
   kable_material(c("striped"))
-# males tend to have larger vairance in the reposne
+# males tend to have larger variance
 
 anova(model1, model2) %>% kbl() %>% kable_material(c("striped"))
-# difference in sex-specific variances significant (likelihood-ration test)
+# difference in sex-specific variances significant (likelihood-ratio test)
 ```
 
-Below the analogues of the above models fittewd using the `lme` function (i.e., allowing for between-sex heteroscedasticity in residuals).
+Below the analogues of the above models fitted using the `lme` function (i.e., allowing for between-sex heteroscedasticity in residuals).
 
 ```{r}
 model1.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
