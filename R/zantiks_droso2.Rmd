@@ -52,10 +52,10 @@ In the next step we test the approach on several steps. First - we process a sam
 
 ```{r 2_parse_lines}
 # read in one specific file for Mac users 
-dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
+#dat_temp <- readLines(paste(data_path, data_files[1], sep = ''))
 
 # # read in one specific file for PC users 
-# dat_temp <- readLines(paste(data_path, data_files[1], sep = '/'))
+dat_temp <- readLines(paste(data_path, data_files[1], sep = '/'))
 
 glimpse(dat_temp)
 
