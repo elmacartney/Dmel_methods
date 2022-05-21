@@ -960,3 +960,4 @@ summary(model6)
 ## comparison of intercept-only and random slopes models
 anova(model5, model6)
 ```
+
