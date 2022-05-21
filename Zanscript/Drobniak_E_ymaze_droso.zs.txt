@@ -1,10 +1,13 @@
+# The assay requires run assets (arena definitions) that have to be generated
+# separately for a given Zantiks unit
 
 INCLUDE zsys
 
 # define experiment requirements
-DEFINE EXPT_TIME 50		
+DEFINE EXPT_TIME 1800		
+DEFINE UNIT_TEMP 25
 
-# define the animal model tracking requirments (dependent on animal size)
+# define the animal model tracking requirements (dependent on animal size)
 SET(TILE_SIZE,5)
 SET(DETECTOR_THRESHOLD,10)
 SET(SEARCH_DISTANCE,9)
@@ -13,7 +16,7 @@ SET(FILTER_RADIUS,8)
 
 # define auto reference tracking requirements
 SET(AUTOREF_MODE,1)				
-SET(AUTOREF_TIMEOUT,300)
+SET(AUTOREF_TIMEOUT,600)
 
 #loads arena and detector assets
 LOAD(ARENAS,"ay15_szy_xx.bmp")
@@ -21,12 +24,16 @@ LOAD(DETECTORS,"zy15_szy_xx.bmp")
 
 
 ACTION MAIN
-        
+    SET(TCS_MODE,PELTIER)
+    SET(THERMOSTAT, UNIT_TEMP)
+    WAIT(1)
+    
     LOGCREATE("TEXT:TIME|TEXT:|TEXT:")
     LOGAPPEND("TEXT:ARENA|TEXT:ACTION|TEXT:ZONE")
     LOGRUN()
     
-    LIGHTS(ALL,OFF)					                       
+    INVOKE(BRIGHT)
+    # LIGHTS(ALL,OFF)					                       
     AUTOREFERENCE()
     
     INVOKE(BRIGHT)
@@ -39,7 +46,8 @@ ACTION YMAZE
 
 	LOGDATA(DATA_SNAPSHOT,"BEGIN")					
 	LOAD(ZONECHANGES,"ON")			 	# records every zone change into data log file
-    WAIT(1)	 							
+    WAIT(1)
+	 							
     # VIDEO(EXPT_TIME,"YMAZE")
     WAIT(EXPT_TIME)				
 	
@@ -132,5 +140,7 @@ ACTION SCREENLIGHT # turns on white light on the screen
     SETCOLOUR(9,1.0,1.0,1.0)
 	LIGHTS(LIGHT1,9)
 COMPLETE
+
+
 
 

@@ -1,49 +1,39 @@
-# DISCLAIMER:
-# This sample script illustrates how zanscript can be written
-# to run an experiment and deliver some example data.  Zantiks Ltd cannot guarantee 
-# this is how you want to run your experiments, this script is offered
-# only to demonstrate the capabilities of the system and assist you in learning how 
-# to script for your research.
+# Based on Allen & Bundenberg 2021. Habituation Learning Is a Widely Affected Mechanism in Drosophila Models of Intellectual Disability and Autism Spectrum Disorders. BiorXiv.
 
-# The script below is for studying animal movement in the Zantiks Ltd MWP unit.
-# This script can be adapted for circadian rhythm, startle, habituation and PPI experiments.
-
-# To run this script you need the appropriate well bitmap in your assets directory. You can
-# check which bitmap is needed at the bottom of this script, depending on how many wells
-# you are using.
-
-# If the opto-genetic light is being used, it must be connected to relay 2, in slot CN3.
+# The assay requires run assets (arena definitions) that have to be generated
+# separately for a given Zantiks unit
 
 ##########################################
 
 INCLUDE zsys
 
 #Vibration or light off experiment
-DEFINE VIBRATE 0								# 0 = light off, 1 = vibration
+DEFINE VIBRATE 0					# 0 = light off, 1 = vibration
 DEFINE TIMESLOT 1
-DEFINE SPONTANEOUS_RECOVERY	1					# 0 = habituation, 1 = habituation plus spontaneous recovery test
+DEFINE SPONTANEOUS_RECOVERY	1		# 0 = habituation, 1 = habituation plus spontaneous recovery test
 
 #Adjust to change number of repeats and timing
-DEFINE TEMPERATURE 22
-DEFINE NUM_WELLS 48								# 6, 12, 24, 48, 96 well-plate
-DEFINE DELAY_START_SECS 0                       # delays the start of the experiment
-DEFINE ACCLIMATION_TIME 3						# initial acclimation period for animals to adjust to environment - units is the length of SAMPLE_TIME_SECS
-DEFINE NUM_REPS_OF_SEQUENCE 2					# repeats of the procedure
-DEFINE SAMPLE_TIME_SECS 1						# time over which movement is sampled (set to 1 for circadian rhythm)
+DEFINE TEMPERATURE 25				# set assay temperature
+DEFINE NUM_WELLS 48				# 6, 12, 24, 48, 96 well-plate
+DEFINE DELAY_START_SECS 0                       	# delays the start of the experiment
+DEFINE ACCLIMATION_TIME 3				# initial acclimation period for animals to adjust to environment - units is the length of SAMPLE_TIME_SECS
+DEFINE NUM_REPS_OF_SEQUENCE 2			# repeats of the procedure
+DEFINE SAMPLE_TIME_SECS 1				# time over which movement is sampled (set to 1 for circadian rhythm)
 
 #Startle settings
-DEFINE NUM_PRE 3								# number of still trials before startles in a block
-DEFINE NUM_POST 3								# number of still trials after startles in a block
-DEFINE CONSECUTIVE_STARTLES 3					# number of startles in a row for habituation (for single startle = 1)
-DEFINE TIME_BETWEEN_STARTLE_TRIALS 1			# must be integer, can be 0
-DEFINE OPTO_BRIGHTNESS 0                        # optolight brightness (0 = max, 10000 = off)
+DEFINE NUM_PRE 3					# number of still trials before startles in a block
+DEFINE NUM_POST 3				# number of still trials after startles in a block
+DEFINE CONSECUTIVE_STARTLES 3			# number of startles in a row for habituation (for single startle = 1)
+DEFINE TIME_BETWEEN_STARTLE_TRIALS 1		# must be integer, can be 0
+DEFINE OPTO_BRIGHTNESS 0                        	# optolight brightness (0 = max, 10000 = off)
 DEFINE VIDEO_LENGTH 8
 
 #Spontaneous recovery settings
-DEFINE RECOVERY_TIME_SECS 10					# time before startle recovery test and/or fatigue test (-1 from desired value)
-DEFINE TIME_BEFORE_NEXT_BLOCK 10				# time after recovery test before habituation begins again
+DEFINE RECOVERY_TIME_SECS 10			# time before startle recovery test and/or fatigue test (-1 from desired value)
+DEFINE TIME_BEFORE_NEXT_BLOCK 10			# time after recovery test before habituation begins again
 
 #These SET commands are necessary for tracking, these are appropriate for adult drosophila
+
 IF VIBRATE = 0
     SET(TILE_SIZE,5)
     SET(DETECTOR_THRESHOLD,10)
@@ -61,10 +51,10 @@ IF VIBRATE = 1
 ENDIF
 
 SET(AUTOREF_MODE,1)
-SET(AUTOREF_TIMEOUT,30)						# sets the max time for detection of animals when initiating tracking
+SET(AUTOREF_TIMEOUT,300)				# sets the max time for detection of animals when initiating tracking
 
-#DEFINE X_LOGDATA_TRACKS 799					# Development setting: log track lengths (total) 
-DEFINE X_DRAWTRACKS 30011           			# Development setting: enable track drawing
+#DEFINE X_LOGDATA_TRACKS 799			# Development setting: log track lengths (total) 
+DEFINE X_DRAWTRACKS 30011           		# Development setting: enable track drawing
     
 #Temperature control settings
 SET(TCS_MODE,PELTIER)
@@ -86,23 +76,23 @@ ACTION MAIN
     INVOKE(DARK)
     
 # Sets the data output counter label to begin at 0. The counter is used in the script below to label the data in numerical order.
-	SET(COUNTER1,COUNTER_ZERO)					# time bin
+	SET(COUNTER1,COUNTER_ZERO)		# time bin
     # Startle experiment counters
-    SET(COUNTER2,COUNTER_ZERO)					# block counter - increments at the start of each block, resets upon repeat of sequence
-    SET(COUNTER3,COUNTER_ZERO)					# trial counter - resets at the start of each block, used for habituation experiments
-    SET(COUNTER4,COUNTER_ZERO)					# pre and post counter
+    SET(COUNTER2,COUNTER_ZERO)			# block counter - increments at the start of each block, resets upon repeat of sequence
+    SET(COUNTER3,COUNTER_ZERO)			# trial counter - resets at the start of each block, used for habituation experiments
+    SET(COUNTER4,COUNTER_ZERO)			# pre and post counter
     
-    SET(COUNTER5,COUNTER_ZERO)					# counter to write in timeslot
+    SET(COUNTER5,COUNTER_ZERO)			# counter to write in timeslot
     INVOKE(TIMESLOT_INC,TIMESLOT)
     
-    SET(COUNTER6,COUNTER_ZERO)					# startle in sequence counter
+    SET(COUNTER6,COUNTER_ZERO)			# startle in sequence counter
 
 # Creates headers for columns in the data file
 	LOGCREATE("TEXT:RUNTIME|TEXT:UNIT|TEXT:TIMESLOT|TEXT:PLATE_ID|TEXT:TEMPERATURE")
-	LOGAPPEND("TEXT:TIME_BIN|TEXT:BLOCK|TEXT:TRIAL|TEXT:TYPE|TEXT:PRE_POST_COUNTER")				# change type headings as appropriate, e.g. startle type or light/dark, change to blank if not needed
+	LOGAPPEND("TEXT:TIME_BIN|TEXT:BLOCK|TEXT:TRIAL|TEXT:TYPE|TEXT:PRE_POST_COUNTER")			# change type headings as appropriate, e.g. startle type or light/dark, change to blank if not needed
 	LOGAPPEND("TEXT:STARTLE_NUMBER")
 
-    IF NUM_WELLS = 6							# completes correct headers and loads arenas
+    IF NUM_WELLS = 6				# completes correct headers and loads arenas
     	INVOKE(WELL_6)
     ENDIF
     
@@ -151,7 +141,7 @@ ACTION ACCLIMATION_LIGHT
 		INVOKE(OPTO_ON)
     ENDIF
     
-    AUTOREFERENCE()									# Creates a reference image for tracking - needed after every hour
+    AUTOREFERENCE()					# Creates a reference image for tracking - needed after every hour
 	SET(X_DRAWTRACKS,1)
     
     INVOKE(ACCLIMATION_SAMPLE,ACCLIMATION_TIME)
@@ -161,16 +151,16 @@ COMPLETE
 
 ACTION ACCLIMATION_SAMPLE
 
-	SET(COUNTER1,COUNTER_INC)							# INC_rements the time_bin counter
+	SET(COUNTER1,COUNTER_INC)				# INC_rements the time_bin counter
     SET(COUNTER3,COUNTER_INC)							# INC_rements the trial counter
 
-	LOGDATA(DATA_SNAPSHOT,"begin")                      # DATA_SNAPSHOT records info at the specific time indicated. Here the data at the beginning of the trial is recorded for later comparison with the next SNAPSHOT. You can change the name by editing inside the "".
+	LOGDATA(DATA_SNAPSHOT,"begin")                     # DATA_SNAPSHOT records info at the specific time indicated. Here the data at the beginning of the trial is recorded for later comparison with the next SNAPSHOT. You can change the name by editing inside the "".
  
  	WAIT(SAMPLE_TIME_SECS)
 
-	LOGDATA(DATA_SNAPSHOT,"end")                        # Recording info at the end of trial. Here the data recorded is compared to the previous SNAPSHOT to give your data during the this previous time slot.
-	LOGDATA(DATA_SELECT,"begin")                        # Data select command pulls the data from the named SNAPSHOT begin above.
-	LOGDATA(DATA_DELTA,"end")                           # Data delta command does the calculation between the first SNAPSHOT in the series to the next one. In this SNAPSHOT "begin" is substracted from the SNAPSHOT "end" to give data variables.
+	LOGDATA(DATA_SNAPSHOT,"end")                       # Recording info at the end of trial. Here the data recorded is compared to the previous SNAPSHOT to give your data during the this previous time slot.
+	LOGDATA(DATA_SELECT,"begin")                       # Data select command pulls the data from the named SNAPSHOT begin above.
+	LOGDATA(DATA_DELTA,"end")                          # Data delta command does the calculation between the first SNAPSHOT in the series to the next one. In this SNAPSHOT "begin" is substracted from the SNAPSHOT "end" to give data variables.
 
  	LOGCREATE("RUNTIME|APPARATUS_ID|COUNTER5|SUBJECT_ID|TEMPERATURE1")
 	LOGAPPEND("COUNTER1|COUNTER2|COUNTER3|TEXT:ACCLIMATION|TEXT:0|TEXT:0")
@@ -182,10 +172,10 @@ COMPLETE
 
 ACTION SEQUENCE   
 
-	SET(COUNTER2,COUNTER_INC)							# INC_rements the block counter
-    SET(COUNTER3,COUNTER_ZERO)							# resets the trial counter
+	SET(COUNTER2,COUNTER_INC)				# INC_rements the block counter
+    SET(COUNTER3,COUNTER_ZERO)				# resets the trial counter
     
-    SET(COUNTER4,COUNTER_ZERO)							# resets the pre and post counter
+    SET(COUNTER4,COUNTER_ZERO)				# resets the pre and post counter
     INVOKE(PRESTARTLE,NUM_PRE)
     
     IF VIBRATE = 1
@@ -197,13 +187,13 @@ ACTION SEQUENCE
 	ENDIF
     
     INVOKE(PRESTARTLE,3)
-    SET(COUNTER6,COUNTER_ZERO)							# resets the startle counter
+    SET(COUNTER6,COUNTER_ZERO)				# resets the startle counter
     INVOKE(STARTLE,CONSECUTIVE_STARTLES)
-    SET(COUNTER4,COUNTER_ZERO)							# resets the pre and post counter
+    SET(COUNTER4,COUNTER_ZERO)				# resets the pre and post counter
     INVOKE(POSTSTARTLE,NUM_POST)
     
     IF SPONTANEOUS_RECOVERY = 1
-    	SET(COUNTER4,COUNTER_ZERO)						# resets the pre and post counter, used for counting rests
+    	SET(COUNTER4,COUNTER_ZERO)			# resets the pre and post counter, used for counting rests
     	INVOKE(REST,RECOVERY_TIME_SECS)
         
         IF VIBRATE = 1
@@ -226,17 +216,17 @@ COMPLETE
 
 ACTION PRESTARTLE
     
-    SET(COUNTER1,COUNTER_INC)							# INC_rements the time_bin counter
-    SET(COUNTER3,COUNTER_INC)							# INC_rements the trial counter
-    SET(COUNTER4,COUNTER_INC)							# INC_rements the pre and post counter
+    SET(COUNTER1,COUNTER_INC)				# INC_rements the time_bin counter
+    SET(COUNTER3,COUNTER_INC)				# INC_rements the trial counter
+    SET(COUNTER4,COUNTER_INC)				# INC_rements the pre and post counter
 
-	LOGDATA(DATA_SNAPSHOT,"begin")                      # DATA_SNAPSHOT records info at the specific time indicated. Here the data at the beginning of the trial is recorded for later comparison with the next SNAPSHOT. You can change the name by editing inside the "".
+	LOGDATA(DATA_SNAPSHOT,"begin")                     # DATA_SNAPSHOT records info at the specific time indicated. Here the data at the beginning of the trial is recorded for later comparison with the next SNAPSHOT. You can change the name by editing inside the "".
  
  	WAIT(SAMPLE_TIME_SECS)
 
-	LOGDATA(DATA_SNAPSHOT,"end")                        # Recording info at the end of trial. Here the data recorded is compared to the previous SNAPSHOT to give your data during the this previous time slot.
-	LOGDATA(DATA_SELECT,"begin")                        # Data select command pulls the data from the named SNAPSHOT begin above.
-	LOGDATA(DATA_DELTA,"end")                           # Data delta command does the calculation between the first SNAPSHOT in the series to the next one. In this SNAPSHOT "begin" is substracted from the SNAPSHOT "end" to give data variables.
+	LOGDATA(DATA_SNAPSHOT,"end")                       # Recording info at the end of trial. Here the data recorded is compared to the previous SNAPSHOT to give your data during the this previous time slot.
+	LOGDATA(DATA_SELECT,"begin")                       # Data select command pulls the data from the named SNAPSHOT begin above.
+	LOGDATA(DATA_DELTA,"end")                          # Data delta command does the calculation between the first SNAPSHOT in the series to the next one. In this SNAPSHOT "begin" is substracted from the SNAPSHOT "end" to give data variables.
 
  	LOGCREATE("RUNTIME|APPARATUS_ID|COUNTER5|SUBJECT_ID|TEMPERATURE1")
     LOGAPPEND("COUNTER1|COUNTER2|COUNTER3|TEXT:PRE|COUNTER4|TEXT:0")
@@ -248,17 +238,17 @@ COMPLETE
 
 ACTION POSTSTARTLE
     
-    SET(COUNTER1,COUNTER_INC)							# INC_rements the time_bin counter
-    SET(COUNTER3,COUNTER_INC)							# INC_rements the trial counter
-    SET(COUNTER4,COUNTER_INC)							# INC_rements the pre and post counter
+    SET(COUNTER1,COUNTER_INC)				# INC_rements the time_bin counter
+    SET(COUNTER3,COUNTER_INC)				# INC_rements the trial counter
+    SET(COUNTER4,COUNTER_INC)				# INC_rements the pre and post counter
 
-	LOGDATA(DATA_SNAPSHOT,"begin")                      # DATA_SNAPSHOT records info at the specific time indicated. Here the data at the beginning of the trial is recorded for later comparison with the next SNAPSHOT. You can change the name by editing inside the "".
+	LOGDATA(DATA_SNAPSHOT,"begin")                     # DATA_SNAPSHOT records info at the specific time indicated. Here the data at the beginning of the trial is recorded for later comparison with the next SNAPSHOT. You can change the name by editing inside the "".
  
  	WAIT(SAMPLE_TIME_SECS)
 
-	LOGDATA(DATA_SNAPSHOT,"end")                        # Recording info at the end of trial. Here the data recorded is compared to the previous SNAPSHOT to give your data during the this previous time slot.
-	LOGDATA(DATA_SELECT,"begin")                        # Data select command pulls the data from the named SNAPSHOT begin above.
-	LOGDATA(DATA_DELTA,"end")                           # Data delta command does the calculation between the first SNAPSHOT in the series to the next one. In this SNAPSHOT "begin" is substracted from the SNAPSHOT "end" to give data variables.
+	LOGDATA(DATA_SNAPSHOT,"end")                      	# Recording info at the end of trial. Here the data recorded is compared to the previous SNAPSHOT to give your data during the this previous time slot.
+	LOGDATA(DATA_SELECT,"begin")                       # Data select command pulls the data from the named SNAPSHOT begin above.
+	LOGDATA(DATA_DELTA,"end")                          # Data delta command does the calculation between the first SNAPSHOT in the series to the next one. In this SNAPSHOT "begin" is substracted from the SNAPSHOT "end" to give data variables.
 
  	LOGCREATE("RUNTIME|APPARATUS_ID|COUNTER5|SUBJECT_ID|TEMPERATURE1")
 	LOGAPPEND("COUNTER1|COUNTER2|COUNTER3|TEXT:POST|COUNTER4|TEXT:0")
@@ -548,3 +538,4 @@ ACTION WELL_96
     LOGAPPEND("TEXT:H7MSD|TEXT:H8MSD|TEXT:H9MSD|TEXT:H10MSD|TEXT:H11MSD|TEXT:H12MSD")
 
 COMPLETE
+
