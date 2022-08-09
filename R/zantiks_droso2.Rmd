@@ -25,6 +25,7 @@ library(ggpubr)
 library(rstatix)
 library(car)
 library(RColorBrewer)
+library(nlme)
 
 col_accent1 = "slateblue1"
 col_accent2 = "springgreen3"
@@ -372,11 +373,11 @@ data_parser <- function(pattern, path, filename, summary = FALSE) {
   zone_change_index <- grep(pattern, dat_temp)
   
   if(summary == FALSE) {
-    return(read_delim(file = dat_temp[zone_change_index], col_names = F, delim = ',',
+    return(read_delim(file = I(dat_temp[zone_change_index]), col_names = F, delim = ',',
                       quote = '\"' # skip = 4, nrows = length(dat_temp) - 4 - 1)
     ))
   } else {
-    return(read_delim(file = dat_temp[-zone_change_index], col_names = T, delim = ',',
+    return(read_delim(file = I(dat_temp[-zone_change_index]), col_names = T, delim = ',',
                       quote = '\"', skip = 6, n_max = 3))
   }
 }
@@ -390,13 +391,13 @@ id_test <- grep(pattern1, test1) # use (simplified) RE to select lines
 
 ```{r 19_test_data}
 # this extracts (messy) run and temporary data from each file
-test_dat <- read_delim(file = test1[-id_test], col_names = T, delim = ',',
+test_dat <- read_delim(file = I(test1[-id_test]), col_names = T, delim = ',',
                       quote = '\"', skip = 6, n_max = 3)
 
 # helper function that parses the (messy) run data into a readable format)
 head_parser <- function(path, filename) {
   dat_temp <- readLines(paste(path, filename, sep = ''), n = 4)
-  return(read_delim(file = dat_temp,
+  return(read_delim(file = I(dat_temp),
                     delim = ',',
                     col_names = F))
 }
@@ -444,10 +445,10 @@ dat_raw_summ <- tibble(data_files = data_files) %>%
                                 data_path,
                                 .x,
                                 summary = T)))
-dat_raw_summ[[2]] <- dat_raw_summ[[2]] %>%
-  map(~ select(.x, !c(X1, X2, X3))) %>%
-  map(~ rename(.x, Summary_stat = X4))
-dat_raw_summ[[2]][[1]]
+# dat_raw_summ[[2]] <- dat_raw_summ[[2]] %>%
+#   map(~ select(.x, !c(X1, X2, X3))) %>%
+#   map(~ rename(.x, Summary_stat = X4))
+# dat_raw_summ[[2]][[1]]
 ```
 
 Unnest the tibble and select relevant variables.
@@ -911,7 +912,7 @@ overall_summary <- startles_only %>%
 ```
 
 
-# Example visualisations
+## Example visualisations
 
 ```{r 44_base_plots}
 # pop habituation averaged across blocks graph
@@ -942,7 +943,7 @@ plot3.2
 ```
 
 
-# Example analysis
+## Example analysis
 
 ```{r 45_random_slopes_model}
 
@@ -961,3 +962,29 @@ summary(model6)
 anova(model5, model6)
 ```
 
+
+
+# Revision: multi-variate data processing
+
+## Merge data across individuals
+
+```{r}
+data_multivar <- left_join(data_ymaze, data_locomotion_avg,
+                           by = 'Individuals_ID_well') %>%
+  select(Individuals_ID_well, avg, reps, alter, partial,
+         rel_reps, rel_alter, rel_R, rel_L, asymmetry, Sex) %>%
+  rename(locomotion = avg) %>%
+  as.data.frame()
+```
+
+```{r}
+library(MCMCglmm)
+model <- MCMCglmm(cbind(log(locomotion + 1), rel_alter, rel_reps, asymmetry) ~ -1 + trait * Sex,
+                  rcov = ~ us(trait):units,
+                  data = data_multivar[!is.infinite(data_multivar$asymmetry), ],
+                  family = rep('gaussian', 4),
+                  prior = list(R = list(V = diag(4), nu=3.002)),
+                  nitt = 100000, burnin = 20000, thin = 80)
+plot(model)
+summary(model)
+```
