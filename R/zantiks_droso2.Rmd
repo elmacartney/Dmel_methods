@@ -968,7 +968,7 @@ anova(model5, model6)
 
 ## Merge data across individuals
 
-```{r}
+```{r 46_merge_into_multivariate}
 data_multivar <- left_join(data_ymaze, data_locomotion_avg,
                            by = 'Individuals_ID_well') %>%
   select(Individuals_ID_well, avg, reps, alter, partial,
@@ -977,7 +977,7 @@ data_multivar <- left_join(data_ymaze, data_locomotion_avg,
   as.data.frame()
 ```
 
-```{r}
+```{r 47_mcmcglmm_simple_mv_model}
 library(MCMCglmm)
 model <- MCMCglmm(cbind(log(locomotion + 1), rel_alter, rel_reps, asymmetry) ~ -1 + trait * Sex,
                   rcov = ~ us(trait):units,
