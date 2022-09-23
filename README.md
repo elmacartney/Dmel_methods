@@ -1,1 +1,9 @@
-# Dmel_methods
+https://img.shields.io/github/license/elmacartney/Dmel_methods
+https://img.shields.io/github/languages/top/elmacartney/Dmel_methods
+
+
+# Quantifying between-individual variation using high-throughput phenotyping of behavioural traits in the fruit fly (*Drosophila melanogaster*)
+
+Behavioural phenotyping is often time and labour-intensive, which can come at a cost to sample size and statistical precision. This is particularly a concern given that behaviours are often highly variable within and between individuals, so naturally requires a larger sample size. Drosophila melanogaster is a common model system in many research fields, and behavioural observations are frequently required. While *D. melanogaster* has a rapid lifecycle that enables large numbers of flies to be reared for experiments, they are still subject to methodological bottlenecks for behavioural observations. Additionally, their small and delicate bodies make it difficult to observe certain behaviours in real-time, for example, in movement tracking or when performing repeated assays on the same individuals. Here, we present a method, pilot data, custom data processing and analysis scripts for high-throughput behavioural phenotyping in D. melanogaster, as well as general remarks for future studies. We used automatic tracking units to measure three behaviours in the same individuals: locomotor activity, exploratory behaviour in a Y-maze, and habituation to a startle response stimulus. We then examined between-individual variation and trait correlations using our pilot data. Through this, we show that these behaviours are amenable to high-throughput automated tracking, with locomotor activity generating the most straightforward and high-quality data. These methods can be used to free up time and labour to allocate to increasing sample sizes and can be used to address a range of biological questions in ecology, evolution, and beyond.
+
+Repository provides data and code to reproduse case example of high-throughput phenotyping of individual fruit flies using the Zantiks system.
