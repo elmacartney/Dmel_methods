@@ -34,4 +34,4 @@ vignettes/*.pdf
 .DS_Store
 
 **/__nosync__*/
-**/.DS_Store
+/**/.DS_Store
