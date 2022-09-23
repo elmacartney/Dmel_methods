@@ -122,13 +122,13 @@ run_register <- read_delim(here('Data', 'run_data', 'run_register_pilot2.csv'), 
 glimpse(run_register)
 
 dat_temp_df <- dat_temp_df %>%
-  left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID))
+  left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID, Sequence))
 
 dat_temp_df <- dat_temp_df %>%
   mutate(Individuals_ID_well = paste0(Individuals_ID, '_', Well_ID))
 
 dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date,
-                                      Batch_ID, Exp_block,temperature, round, arena_distance)
+                                      Batch_ID, Sequence, Exp_block,temperature, round, arena_distance)
 glimpse(dat_temp_df)
 ```
 
@@ -175,7 +175,7 @@ data_compiler <- function(filename, data_path, run_register) {
          Variable = VARIABLE, Date = date, Well_ID = well_id)
   
   dat_temp_df <- dat_temp_df %>%
-    left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID))
+    left_join(select(run_register, Datafile_ID, Individuals_ID, Exp_block, Batch_ID, Sequence))
   
   dat_temp_df <- dat_temp_df %>%
     mutate(Individuals_ID_well = paste0(Individuals_ID, '_', Well_ID))
@@ -183,7 +183,7 @@ data_compiler <- function(filename, data_path, run_register) {
   dat_temp_df$Filename <- filename
   
   dat_temp_df <- dat_temp_df %>% select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Filename, Exp_block, Batch_ID,
-                                      temperature, round, arena_distance)
+                                      Sequence, temperature, round, arena_distance)
   
   return(dat_temp_df)
 }
@@ -227,7 +227,7 @@ data_locomotion$Round_f <- as.factor(data_locomotion$round)
 
 ```{r 11_make_final_df}
 data_locomotion <- data_locomotion %>%
-  select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Exp_block, Batch_ID, arena_distance, Sex, Round_f)
+  select(Individuals_ID_well, Individuals_ID, Datafile_ID, Date, Exp_block, Batch_ID, Sequence, arena_distance, Sex, Round_f)
 
 data_locomotion$Sex <- as.factor(data_locomotion$Sex)
 data_locomotion$Round_f <- as.factor(data_locomotion$Round_f)
@@ -243,7 +243,7 @@ Histograms present raw and log-transformed total distance data. Scatter-whisker 
 ```{r 12_base_plots}
 data_locomotion_avg <- data_locomotion %>%
   group_by(Individuals_ID_well) %>%
-  summarise(avg = mean(arena_distance))
+  summarise(avg = mean(arena_distance), Sequence = Sequence)
 
 # raw data variation
 plot1.1 <- data_locomotion_avg %>%
@@ -267,6 +267,13 @@ plot1.3 <- data_locomotion %>%
   theme_classic() + theme(axis.text.x = element_blank()) +
   ylab("Arena distance") + xlab("Individuals")
 plot1.3
+
+plot1.4 <- data_locomotion %>%
+  ggplot(aes(x = as.factor(Sequence), y = log(arena_distance+1))) +
+  geom_boxplot(width = 2, outlier.size = 0.7, col = col_accent1) +
+  theme_classic() +
+  ylab("Arena distance") + xlab("Sequence")
+plot1.4
 ```
 
 We can also visualise sexual differences.
@@ -303,20 +310,20 @@ Below the  models are fitted using the `lme` function (allowing for between-sex 
 
 ```{r 15_lme_models}
 # model 1: variance between rounds, individuals and batches, fixed effect of sex and assay date
-model1.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
+model1.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date)+as.factor(Sequence),
                random = list(~1|Exp_block, ~1|Individuals_ID_well),
              data = data_locomotion, na.action = na.omit)
 summary(model1.lme)
 
 # model 2: additional variation in sex effect between individuals (i.e. sex-specific between individual variance)
-model2.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
+model2.lme <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date)+as.factor(Sequence),
                random = list(~1|Exp_block, ~Sex-1|Individuals_ID_well),
              data = data_locomotion, na.action = na.omit)
 summary(model2.lme)
 anova(model1.lme, model2.lme)
 
 ## model 3: testing of sex-specific heteroscedasticity of residual variance
-model2.lme.h <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date),
+model2.lme.h <- lme(scale(log(arena_distance+1)) ~ Sex + as.factor(Date)+as.factor(Sequence),
                random = list(~1|Exp_block, ~Sex-1|Individuals_ID_well),
                weights = varIdent(form=~1|Sex),
              data = data_locomotion, na.action = na.omit)
@@ -549,13 +556,13 @@ We need to work separately for each individual - the easiest is to separate indi
 well_arena <- read_delim(here('Data', 'run_data', 'well_arena_corresp.csv'), delim = ';')
 
 dat_an2 <- dat_an2 %>%
-  left_join(select(run_register, Datafile_ID, Individuals_ID, Plate, Unit_ID), by = "Datafile_ID") %>%
+  left_join(select(run_register, Datafile_ID, Individuals_ID, Sequence, Plate, Unit_ID), by = "Datafile_ID") %>%
   mutate(Ymaze_arena = paste0(Plate, "_", Arena)) %>%
   # mutate(fly_id = paste(gsub('[A-Za-z0-9]+\\/([A-Za-z0-9_-]+)\\.csv', '\\1', data_files), arena, sep = "_"))
   # mutate(fly_id = paste0(Datafile_ID, "_", Ymaze_arena)) %>% # not really necessary
   left_join(select(well_arena, Ymaze_arena, Plate48well), by = "Ymaze_arena") %>%
   mutate(Individuals_ID_well = paste0(Individuals_ID, "_", Plate48well)) %>%
-  select(Datafile_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone)
+  select(Datafile_ID, Individuals_ID, Individuals_ID_well, Sequence, Ymaze_arena, time, Bin, Zone, t_zone)
 
 # split datafile into individual flies
 dat_an2 <- dat_an2 %>% split(., .[, "Individuals_ID_well"])
@@ -570,7 +577,7 @@ dat_an2 <- dat_an2 %>%
                                   Lag_zone==3 & Zone==2 ~ 'R',
                                   # lag_zone==zone ~ 'X', # this enables additional decision type = stay in the given zone
                                   TRUE ~ NA_character_ ))) %>%
-  map(~ select(.x, Datafile_ID, Individuals_ID, Individuals_ID_well, Ymaze_arena, time, Bin, Zone, t_zone, Turn))
+  map(~ select(.x, Datafile_ID, Individuals_ID, Individuals_ID_well, Sequence, Ymaze_arena, time, Bin, Zone, t_zone, Turn))
 
 dat_an3 <- bind_rows(dat_an2)
 dat_an3 <- dat_an3 %>%
@@ -590,7 +597,7 @@ dat_tri <- dat_an4 %>%
 dat_tri <- dat_tri %>%
   mutate(Trigram = str_c(Turn, lead(Turn), lead(Turn,2))) %>%
   ungroup() %>%
-  select(Individuals_ID_well, Turn, Trigram)
+  select(Individuals_ID_well,Sequence, Turn, Trigram)
 dat_tri
 ```
 
@@ -610,7 +617,7 @@ tri_long <- dat_tri %>%
 tri_wide <- tri_long %>% pivot_wider(names_from = Trigram, values_from = n)
 
 turn_long = dat_tri %>%
-  select(-Trigram) %>%
+  select(-Trigram, -Sequence) %>%
   na.omit() %>%
   group_by(Individuals_ID_well) %>%
   table() %>%
@@ -738,6 +745,29 @@ plot2.7 <- data_ymaze %>%
 plot2.7
 ```
 
+```{r 36_1_sequence_violin_plots}
+plot2.5s <- data_ymaze %>% 
+  ggviolin(., x = "Sequence", y = "rel_reps", add = c("jitter", "mean_se"),
+           error.plot = "crossbar", fill = col_accent2, lwd = 0) +
+  labs(y = "Proportion of repetitions") +
+  theme_classic() + theme(text = element_text(size = 15))
+plot2.5s
+
+plot2.6s <- data_ymaze %>% 
+  ggviolin(., x = "Sequence", y = "rel_alter", add = c("jitter", "mean_se"),
+           error.plot = "crossbar", fill = col_accent1, lwd = 0) +
+  labs(y = "Proportion of alterations") +
+  theme_classic() + theme(text = element_text(size = 15))
+plot2.6s
+
+plot2.7s <- data_ymaze %>% 
+  ggviolin(., x = "Sequence", y = "asymmetry", add = c("jitter", "mean_se"),
+           error.plot = "crossbar", fill = col_detail1, lwd = 0) +
+  labs(y = "Handedness (turning asymmetry)") +
+  theme_classic() + theme(text = element_text(size = 15))
+plot2.7s
+```
+
 ```{r 36_save_plots}
 # plot_ymaze_sex <- ggarrange(plot2.5, plot2.6, plot2.7, nrow = 1)
 # plot_ymaze_sex
@@ -766,6 +796,15 @@ model4 <- glm(alter ~ Sex * avg,
              data = data_ymaze %>% left_join(data_locomotion_avg, by = 'Individuals_ID_well') %>% filter(alter < 100),
              family = 'poisson')
 summary(model4)
+
+model5 <- glm(alter ~ Sex + as.factor(Sequence),
+             data = data_ymaze,
+             family = 'poisson')
+summary(model5)
+model6 <- glm(reps ~ Sex + as.factor(Sequence),
+             data = data_ymaze,
+             family = 'poisson')
+summary(model6)
 ```
 
 
@@ -984,7 +1023,16 @@ model <- MCMCglmm(cbind(log(locomotion + 1), rel_alter, rel_reps, asymmetry) ~ -
                   data = data_multivar[!is.infinite(data_multivar$asymmetry), ],
                   family = rep('gaussian', 4),
                   prior = list(R = list(V = diag(4), nu=3.002)),
-                  nitt = 100000, burnin = 20000, thin = 80)
+                  nitt = 100000, burnin = 20000, thin = 80, verbose = F)
 plot(model)
 summary(model)
+matrix(colMeans(posterior.cor(model$VCV)), 4, 4)
+
+
+# plot correlations
+hist(data_multivar$locomotion)
+hist(data_multivar$rel_reps)
+hist(data_multivar$rel_alter)
+hist(data_multivar$asymmetry)
+pairs(~log(locomotion+1)+log(rel_alter+1)+log(rel_reps+1)+asymmetry, data = data_multivar)
 ```

@@ -32,3 +32,6 @@ vignettes/*.pdf
 *.Rproj
 
 .DS_Store
+
+**/__nosync__*/
+**/.DS_Store
