@@ -1,6 +1,3 @@
-![GitHub](https://img.shields.io/github/license/elmacartney/Dmel_methods)
-![GitHub top language](https://img.shields.io/github/languages/top/elmacartney/Dmel_methods)
-
 
 # Quantifying between-individual variation using high-throughput phenotyping of behavioural traits in the fruit fly (*Drosophila melanogaster*)
 
